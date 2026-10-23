@@ -68,7 +68,7 @@ def start_server_thread():
     try:
         import uvicorn
         from server import app
-        config = uvicorn.Config(app, host="0.0.0.0", port=PORT, log_level="warning", access_log=False)
+        config = uvicorn.Config(app, host="0.0.0.0", port=PORT, log_level="warning", access_log=False, log_config=None)
         server = uvicorn.Server(config)
         server.run()
     except Exception as e:
