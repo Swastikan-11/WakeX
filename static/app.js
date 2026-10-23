@@ -391,7 +391,7 @@ async function testWolPacketSelf() {
       const macs = (data.tested_macs || []).join(", ");
       const subnets = (data.broadcast_targets || []).join(", ");
       alert(`⚡ [WAKE-ON-LAN SELF-TEST SUCCESS]\n\n` +
-            `Magic Packets broadcasted across ports 9, 7, and 0.\n\n` +
+            `Magic Packets broadcasted across ports 9 and 7.\n\n` +
             `• Target MACs: ${macs}\n` +
             `• Broadcast Subnets: ${subnets}\n` +
             `• Primary Cold Wake: ${data.primary_cold_wake_mac || "Ethernet"}\n` +

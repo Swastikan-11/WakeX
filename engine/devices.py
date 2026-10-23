@@ -171,7 +171,7 @@ def send_wake_on_lan(mac_address, broadcast_ip: str = "255.255.255.255", port: i
             with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
                 sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
                 for b_ip in broadcast_targets:
-                    for p in [9, 7, 0]:
+                    for p in [9, 7]:
                         try:
                             sock.sendto(magic_packet, (b_ip, p))
                         except Exception:
@@ -184,10 +184,10 @@ def send_wake_on_lan(mac_address, broadcast_ip: str = "255.255.255.255", port: i
     if sent_macs:
         return {
             "status": "success",
-            "message": f"⚡ Turn On / Wake signal sent to MAC(s): {', '.join(sent_macs)} across subnets {broadcast_targets} on ports 9, 7, and 0!",
+            "message": f"⚡ Turn On / Wake signal sent to MAC(s): {', '.join(sent_macs)} across subnets {broadcast_targets} on ports 9 and 7!",
             "macs_sent": sent_macs,
             "broadcast_targets": broadcast_targets,
-            "ports": [9, 7, 0]
+            "ports": [9, 7]
         }
     return {
         "status": "error",

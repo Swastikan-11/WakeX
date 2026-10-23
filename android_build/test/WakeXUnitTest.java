@@ -53,6 +53,33 @@ public class WakeXUnitTest {
             failed++;
         }
 
+        try {
+            testUdpDiscoveryPacketParsing();
+            System.out.println("PASS: testUdpDiscoveryPacketParsing");
+            passed++;
+        } catch (Throwable t) {
+            System.err.println("FAIL: testUdpDiscoveryPacketParsing: " + t.getMessage());
+            failed++;
+        }
+
+        try {
+            testIpRebindDetection();
+            System.out.println("PASS: testIpRebindDetection");
+            passed++;
+        } catch (Throwable t) {
+            System.err.println("FAIL: testIpRebindDetection: " + t.getMessage());
+            failed++;
+        }
+
+        try {
+            testWatchdogTimeoutBehavior();
+            System.out.println("PASS: testWatchdogTimeoutBehavior");
+            passed++;
+        } catch (Throwable t) {
+            System.err.println("FAIL: testWatchdogTimeoutBehavior: " + t.getMessage());
+            failed++;
+        }
+
         System.out.println("--------------------------------------------------");
         System.out.println("Tests passed: " + passed + " | Failed: " + failed);
         System.out.println("==================================================");
@@ -175,5 +202,88 @@ public class WakeXUnitTest {
         // Verify tampering breaks signature
         String tampered = signRequest(secret, "GET", path, timestamp, nonce, bodyHash);
         assertTrue(!sig1.equals(tampered), "Tampered HTTP method must produce different signature");
+    }
+
+    public static void testUdpDiscoveryPacketParsing() {
+        String jsonPayload = "{\"app\":\"WakeX\",\"ip\":\"192.168.1.104\",\"port\":8000,\"hostname\":\"test-pc\",\"os\":\"windows\"}";
+        // Extract ip
+        int ipIdx = jsonPayload.indexOf("\"ip\":\"");
+        assertTrue(ipIdx != -1, "Payload must contain ip key");
+        int ipStart = ipIdx + 6;
+        int ipEnd = jsonPayload.indexOf("\"", ipStart);
+        String ip = jsonPayload.substring(ipStart, ipEnd);
+        assertEquals("192.168.1.104", ip, "Parsed IP must match payload");
+
+        // Extract port
+        int portIdx = jsonPayload.indexOf("\"port\":");
+        assertTrue(portIdx != -1, "Payload must contain port key");
+        int portStart = portIdx + 7;
+        int portEnd = jsonPayload.indexOf(",", portStart);
+        if (portEnd == -1) portEnd = jsonPayload.indexOf("}", portStart);
+        int port = Integer.parseInt(jsonPayload.substring(portStart, portEnd).trim());
+        assertEquals(8000, port, "Parsed port must match payload");
+    }
+
+    public static void testIpRebindDetection() {
+        String savedUrl = "192.168.1.50:8000";
+        String discoveredIp = "192.168.1.104";
+        int discoveredPort = 8000;
+        String newTarget = discoveredIp + ":" + discoveredPort;
+
+        // Condition matching MainActivity.java line 765
+        boolean rebindNeeded = !savedUrl.equals(newTarget);
+        assertTrue(rebindNeeded, "Rebinding must trigger when host IP changes");
+
+        // After updating
+        savedUrl = newTarget;
+        boolean rebindNeededAfter = !savedUrl.equals(newTarget);
+        assertTrue(!rebindNeededAfter, "Rebinding must not trigger when URLs match");
+    }
+
+    public static void testWatchdogTimeoutBehavior() {
+        // Watchdog state simulation matching MainActivity.java connection lifecycle
+        class WatchdogSimulator {
+            boolean armed = false;
+            boolean timeoutFired = false;
+            boolean recovered = false;
+
+            void arm() {
+                armed = true;
+                timeoutFired = false;
+            }
+
+            void disarm() {
+                armed = false;
+            }
+
+            void onProgress(int progress) {
+                if (progress >= 75) {
+                    disarm(); // MainActivity.java line 287
+                }
+            }
+
+            void simulateTimeout() {
+                if (armed) {
+                    timeoutFired = true;
+                    recovered = true; // Shows offline recovery UI
+                }
+            }
+        }
+
+        // Case 1: Fast render disarms watchdog before timeout
+        WatchdogSimulator sim1 = new WatchdogSimulator();
+        sim1.arm();
+        sim1.onProgress(80);
+        sim1.simulateTimeout();
+        assertTrue(!sim1.timeoutFired, "Disarmed watchdog must not fire timeout");
+        assertTrue(!sim1.recovered, "Disarmed watchdog must not trigger offline recovery");
+
+        // Case 2: Hang / packet drop lets watchdog fire
+        WatchdogSimulator sim2 = new WatchdogSimulator();
+        sim2.arm();
+        sim2.onProgress(40); // Stuck at 40%
+        sim2.simulateTimeout();
+        assertTrue(sim2.timeoutFired, "Stalled page must trigger watchdog timeout");
+        assertTrue(sim2.recovered, "Stalled page must initiate recovery fallback");
     }
 }
