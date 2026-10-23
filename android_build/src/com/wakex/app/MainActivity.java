@@ -280,6 +280,11 @@ public class MainActivity extends Activity {
                         progressBar.setVisibility(View.GONE);
                     }
                 }
+                // Once DOM is rendered (>= 75%), mark success and disarm watchdog to eliminate black-screen hangs
+                if (newProgress >= 75) {
+                    pageLoadSuccess = true;
+                    watchdogHandler.removeCallbacks(timeoutRunnable);
+                }
             }
         });
 
@@ -379,6 +384,19 @@ public class MainActivity extends Activity {
             webView.restoreState(savedInstanceState);
         } else {
             loadWakeX();
+        }
+    }
+
+
+    @Override
+    public void onConfigurationChanged(android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        // Fix rotation bugs: prevent white/black flash and keep layout responsive
+        if (rootLayout != null) {
+            rootLayout.requestLayout();
+        }
+        if (webView != null) {
+            webView.requestLayout();
         }
     }
 

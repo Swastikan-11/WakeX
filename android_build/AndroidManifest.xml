@@ -34,6 +34,20 @@
             </intent-filter>
         </activity>
 
+        <!-- Native Home-Screen Quick Control Widget -->
+        <receiver
+            android:name=".WakeXAppWidgetProvider"
+            android:label="WakeX Quick Control"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.wakex.app.ACTION_WAKE_PC" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
+
         <service
             android:name=".WakeXTileService"
             android:icon="@drawable/icon"

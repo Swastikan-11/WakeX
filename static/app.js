@@ -8,6 +8,7 @@ let targetRenameDeviceId = null;
 document.addEventListener("DOMContentLoaded", async () => {
   initTheme();
   initNavigation();
+  checkOnboarding();
   initBotAssistant();
   initPowerModals();
   await initAuthentication();
@@ -631,46 +632,49 @@ function renderDevicesView(devices) {
     const card = document.createElement("div");
     card.className = "device-card";
     const isOnline = dev.status === "online";
+    const roleBadge = dev.is_current ? "⭐ Host Machine (This PC)" : "📡 Remote Computer";
+    const icon = dev.type === "laptop" ? "💻" : (dev.type === "server" ? "🖧" : "🖥️");
 
     card.innerHTML = `
       <div>
-        <div class="device-card-header">
-          <div class="device-name-title">
-            <span>💻</span>
-            <span>${dev.name}</span>
+        <div class="device-card-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+          <div>
+            <div class="device-name-title" style="font-size: 1.15rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+              <span>${icon}</span>
+              <span>${escapeHtml(dev.name)}</span>
+            </div>
+            <div style="font-size: 0.78rem; color: var(--accent-red); font-weight: 600; margin-top: 2px;">${roleBadge}</div>
           </div>
-          <span class="device-status-pill ${isOnline ? 'online' : 'offline'}">
-            <span class="status-dot" style="background: ${isOnline ? 'var(--accent-green)' : 'var(--accent-red)'}"></span>
-            ${isOnline ? 'Online' : 'Offline / Sleeping'}
+          <span class="device-status-pill ${isOnline ? 'online' : 'offline'}" style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; background: ${isOnline ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}; color: ${isOnline ? 'var(--accent-green)' : 'var(--accent-red)'}; border: 1px solid ${isOnline ? 'var(--accent-green)' : 'var(--accent-red)'};">
+            <span class="status-dot" style="background: ${isOnline ? 'var(--accent-green)' : 'var(--accent-red)'}; box-shadow: 0 0 6px ${isOnline ? 'var(--accent-green)' : 'var(--accent-red)'};"></span>
+            ${isOnline ? 'Online & Ready' : 'Offline / Standby'}
           </span>
         </div>
 
-        <div class="device-details-meta">
-          <div><strong>IP Address:</strong> ${dev.ip || "Not set"}</div>
-          <div><strong>MAC Address:</strong> ${dev.mac || "Not set"}</div>
-          <div><strong>Port:</strong> ${dev.port || 8001}</div>
-          <div><strong>Role:</strong> ${dev.is_current ? "This Computer (Host Hub)" : "Remote Target"}</div>
-          <div><strong>Agent Auth:</strong> ${dev.auth_token ? "🔒 Token Armed" : "⚠️ No Token (WoL only)"}</div>
+        <div class="device-details-meta" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; font-size: 0.82rem; background: rgba(0,0,0,0.25); padding: 10px 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+          <div><strong style="color: var(--text-secondary);">IP Address:</strong> <span style="font-family: monospace; color: #fff;">${dev.ip || "Not set"}</span></div>
+          <div><strong style="color: var(--text-secondary);">MAC Address:</strong> <span style="font-family: monospace; color: #fff;">${dev.mac || "None"}</span></div>
+          <div><strong style="color: var(--text-secondary);">Port:</strong> <span style="color: #fff;">${dev.port || 8000}</span></div>
+          <div><strong style="color: var(--text-secondary);">Security:</strong> <span style="color: ${dev.auth_token || dev.is_current ? 'var(--accent-green)' : 'var(--accent-amber)'}; font-weight: 600;">${dev.is_current ? "⭐ Local Host Session" : (dev.auth_token ? "🔒 HMAC Key Armed" : "⚠️ WoL Only")}</span></div>
         </div>
       </div>
 
       <div class="device-card-actions">
-        <button class="btn-small wake" onclick="wakeDevice('${dev.id}')">
-          <span>⚡</span> Turn On / Wake
+        <button class="btn-small wake" onclick="wakeDevice('${dev.id}')" aria-label="Turn on ${escapeHtml(dev.name)} via Wake-on-LAN">
+          <span>⚡</span> Turn On
         </button>
-        <button class="btn-small" style="color: var(--accent-green);" onclick="currentActiveDeviceId='${dev.id}'; promptPowerAction('unlock')">
+        <button class="btn-small" style="color: var(--accent-green);" onclick="currentActiveDeviceId='${dev.id}'; promptPowerAction('unlock')" aria-label="Wake display and dismiss lock for ${escapeHtml(dev.name)}">
           <span>🔓</span> Unlock
         </button>
-        <button class="btn-small" onclick="openRenameModal('${dev.id}', '${dev.name}')">
+        <button class="btn-small" onclick="openRenameModal('${dev.id}', '${escapeHtml(dev.name)}')" aria-label="Rename ${escapeHtml(dev.name)}">
           <span>✏️</span> Rename
         </button>
         ${!dev.is_current ? `
-          <button class="btn-small delete" onclick="deleteDeviceConfirm('${dev.id}', '${dev.name}')">
+          <button class="btn-small delete" onclick="deleteDeviceConfirm('${dev.id}', '${escapeHtml(dev.name)}')" aria-label="Remove ${escapeHtml(dev.name)}">
             <span>🗑️</span> Remove
           </button>
         ` : ''}
       </div>
-
     `;
     container.appendChild(card);
   });
@@ -1512,4 +1516,33 @@ function toggleTheme() {
   const currentTheme = document.body.classList.contains("light-theme") ? "light" : "dark";
   const newTheme = currentTheme === "light" ? "dark" : "light";
   setTheme(newTheme, true);
+}
+
+// --- 3-Step Guided Onboarding ---
+function checkOnboarding() {
+  const onboarded = localStorage.getItem("wakex_onboarded");
+  if (!onboarded) {
+    showOnboarding();
+  }
+}
+
+function showOnboarding() {
+  nextOnboardingStep(1);
+  const modal = document.getElementById("onboarding-modal");
+  if (modal) modal.classList.add("open");
+}
+
+function nextOnboardingStep(step) {
+  for (let s = 1; s <= 3; s++) {
+    const el = document.getElementById(`onboarding-step-${s}`);
+    if (el) el.style.display = s === step ? "block" : "none";
+  }
+  const counter = document.getElementById("onboarding-step-counter");
+  if (counter) counter.textContent = `Step ${step} of 3`;
+}
+
+function completeOnboarding() {
+  localStorage.setItem("wakex_onboarded", "true");
+  const modal = document.getElementById("onboarding-modal");
+  if (modal) modal.classList.remove("open");
 }

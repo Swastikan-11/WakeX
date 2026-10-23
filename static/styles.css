@@ -1341,3 +1341,48 @@ body.light-theme .brand-title {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+
+/* --- Accessibility & Touch Target Upgrades (WCAG AA Compliance) --- */
+.power-btn,
+.btn-primary,
+.modal-btn,
+.theme-select-btn,
+.nav-item,
+.bottom-nav-item,
+.device-card-actions .btn-small {
+  min-height: 48px;
+  touch-action: manipulation;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-red);
+  outline-offset: 3px;
+}
+
+.device-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.device-card-actions .btn-small {
+  min-height: 44px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  border: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+}
+
+.device-card-actions .btn-small:hover {
+  border-color: var(--accent-red);
+  transform: translateY(-1px);
+}

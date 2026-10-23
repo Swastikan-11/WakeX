@@ -57,6 +57,9 @@
         <li class="nav-item" data-target="view-settings">
           <span>⚙️</span> Settings
         </li>
+        <li class="nav-item" onclick="showOnboarding()" style="color: var(--accent-red); cursor: pointer;" role="button" aria-label="Open 3-Step Setup Guide">
+          <span>🎓</span> Guided Tour
+        </li>
       </ul>
 
       <div class="sidebar-footer">
@@ -709,6 +712,71 @@
       <div class="modal-actions" style="justify-content: center; gap: 10px;">
         <button class="modal-btn confirm" style="background: var(--accent-green); width: 100%;" onclick="submitClientPairing()">🔒 Pair Device</button>
       </div>
+    </div>
+  </div>
+
+
+  <!-- 3-STEP ONBOARDING WIZARD -->
+  <div id="onboarding-modal" class="modal-overlay">
+    <div class="modal-box onboarding-box" style="max-width: 500px; text-align: left;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <img src="/static/icon.png" alt="WakeX" style="width: 28px; height: 28px; border-radius: 50%;">
+          <strong style="font-size: 1.1rem; color: #fff;">WakeX Setup Guide</strong>
+        </div>
+        <span id="onboarding-step-counter" style="font-size: 0.8rem; font-weight: 700; color: var(--accent-red); background: rgba(255,42,68,0.12); padding: 4px 10px; border-radius: 12px; border: 1px solid var(--accent-red);">Step 1 of 3</span>
+      </div>
+
+      <!-- Step 1: Connect & Discover -->
+      <div id="onboarding-step-1" class="onboarding-step active">
+        <div style="font-size: 2rem; margin-bottom: 8px;">🌐</div>
+        <h3 style="color: #fff; margin-bottom: 6px;">1. Connect to Local Wi-Fi</h3>
+        <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.5; margin-bottom: 16px;">
+          WakeX operates strictly local-first on your home network with zero cloud or third-party servers.
+          Ensure your phone and PC are connected to the same Wi-Fi router.
+        </p>
+        <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 0.82rem;">
+          <div>📡 <strong>Auto-Discovery:</strong> Fast UDP port 8002 discovery active.</div>
+          <div style="margin-top: 4px;">⚡ <strong>Zero Cloud:</strong> Your data never leaves your home network.</div>
+        </div>
+        <div class="modal-actions" style="justify-content: flex-end;">
+          <button class="modal-btn confirm" onclick="nextOnboardingStep(2)" style="min-height: 48px;" aria-label="Go to step 2">Next: Secure Pairing ➔</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Secure Cryptographic Pairing -->
+      <div id="onboarding-step-2" class="onboarding-step" style="display: none;">
+        <div style="font-size: 2rem; margin-bottom: 8px;">🔒</div>
+        <h3 style="color: #fff; margin-bottom: 6px;">2. Cryptographic Device Pairing</h3>
+        <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.5; margin-bottom: 16px;">
+          Your phone pairs securely using a one-time 6-digit PIN and stores a 256-bit key in the hardware Android KeyStore.
+          Every power command is HMAC-signed to eliminate replay attacks.
+        </p>
+        <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 0.82rem;">
+          <div>🔑 <strong>Find Your PIN:</strong> Right-click the WakeX tray icon on your PC and click <em>"Pair Mobile (Show One-Time PIN)"</em>.</div>
+        </div>
+        <div class="modal-actions" style="justify-content: space-between;">
+          <button class="modal-btn cancel" onclick="nextOnboardingStep(1)" style="min-height: 48px;" aria-label="Go back to step 1">⬅ Back</button>
+          <button class="modal-btn confirm" onclick="nextOnboardingStep(3)" style="min-height: 48px;" aria-label="Go to step 3">Next: Power Control ➔</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Hardware Power & Workspaces -->
+      <div id="onboarding-step-3" class="onboarding-step" style="display: none;">
+        <div style="font-size: 2rem; margin-bottom: 8px;">⚡</div>
+        <h3 style="color: #fff; margin-bottom: 6px;">3. Instant Wake & Workspaces</h3>
+        <p style="color: var(--text-secondary); font-size: 0.88rem; line-height: 1.5; margin-bottom: 16px;">
+          You're all set! Use Turn On to wake your PC via Magic Packet, Unlock to wake your monitors and dismiss the lock curtain, or launch automated workspaces.
+        </p>
+        <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 16px; font-size: 0.82rem;">
+          <div>💡 <strong>Hardware Wake Tip:</strong> Ethernet wakes from 0W shutdown. Wi-Fi wakes from Modern Standby Sleep while plugged into AC power.</div>
+        </div>
+        <div class="modal-actions" style="justify-content: space-between;">
+          <button class="modal-btn cancel" onclick="nextOnboardingStep(2)" style="min-height: 48px;" aria-label="Go back to step 2">⬅ Back</button>
+          <button class="modal-btn confirm" style="background: var(--accent-green); min-height: 48px;" onclick="completeOnboarding()" aria-label="Finish setup and start using WakeX">🚀 Launch Command Center</button>
+        </div>
+      </div>
+
     </div>
   </div>
 
