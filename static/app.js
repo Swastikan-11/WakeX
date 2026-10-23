@@ -106,7 +106,26 @@ async function initAuthentication() {
     } catch (e) {
       console.warn("Could not retrieve local token:", e);
     }
+
+    // Check if triggered from Tray Menu with a specific pairing code
+    if (window.location.hash && window.location.hash.includes("pair-code=")) {
+      const code = window.location.hash.split("pair-code=")[1].substring(0, 6);
+      const display = document.getElementById("pairing-code-display");
+      const modal = document.getElementById("pairing-code-modal");
+      if (display && modal) {
+        display.textContent = code;
+        modal.classList.add("open");
+      }
+    }
     return;
+  }
+
+  // If remote phone arrived with a pair code in URL (e.g. from QR scan)
+  if (window.location.hash && window.location.hash.includes("pair=")) {
+    const code = window.location.hash.split("pair=")[1].substring(0, 6);
+    const codeInput = document.getElementById("client-pair-code");
+    if (codeInput) codeInput.value = code;
+    showClientPairModal();
   }
 
   // If remote client (phone or LAN browser)

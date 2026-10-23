@@ -38,6 +38,18 @@ import android.widget.Toast;
 
 import org.json.JSONObject;
 
+import java.security.KeyStore;
+import javax.crypto.Cipher;
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
+import javax.crypto.spec.GCMParameterSpec;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import android.security.keystore.KeyGenParameterSpec;
+import android.security.keystore.KeyProperties;
+import android.util.Base64;
+import java.nio.charset.StandardCharsets;
+
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
@@ -50,6 +62,83 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class MainActivity extends Activity {
+    // --- Android KeyStore Cryptographic Storage ---
+    private static final String ANDROID_KEYSTORE = "AndroidKeyStore";
+    private static final String KEYSTORE_ALIAS = "WakeXSecretMasterKey";
+    private static final String PREF_KEY_ENCRYPTED_SECRET = "wakex_encrypted_secret";
+
+    private synchronized SecretKey getOrCreateMasterKey() {
+        try {
+            KeyStore keyStore = KeyStore.getInstance(ANDROID_KEYSTORE);
+            keyStore.load(null);
+            if (!keyStore.containsAlias(KEYSTORE_ALIAS)) {
+                KeyGenerator keyGen = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE);
+                keyGen.init(new KeyGenParameterSpec.Builder(
+                        KEYSTORE_ALIAS,
+                        KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+                        .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                        .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                        .setKeySize(256)
+                        .build());
+                return keyGen.generateKey();
+            }
+            return (SecretKey) keyStore.getKey(KEYSTORE_ALIAS, null);
+        } catch (Exception e) {
+            android.util.Log.e("WakeX.KeyStore", "KeyStore initialization error", e);
+            return null;
+        }
+    }
+
+    private void storeSecretInKeyStore(String secret) {
+        if (secret == null || secret.isEmpty()) return;
+        try {
+            SecretKey key = getOrCreateMasterKey();
+            if (key != null) {
+                Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+                cipher.init(Cipher.ENCRYPT_MODE, key);
+                byte[] iv = cipher.getIV();
+                byte[] encrypted = cipher.doFinal(secret.getBytes(StandardCharsets.UTF_8));
+                byte[] combined = new byte[iv.length + encrypted.length];
+                System.arraycopy(iv, 0, combined, 0, iv.length);
+                System.arraycopy(encrypted, 0, combined, iv.length, encrypted.length);
+                String base64Encrypted = Base64.encodeToString(combined, Base64.NO_WRAP);
+                prefs.edit().putString(PREF_KEY_ENCRYPTED_SECRET, base64Encrypted).remove(PREF_KEY_CLIENT_SECRET).apply();
+                return;
+            }
+        } catch (Exception e) {
+            android.util.Log.e("WakeX.KeyStore", "Encryption error", e);
+        }
+        // Fallback for emulators without KeyStore support
+        prefs.edit().putString(PREF_KEY_CLIENT_SECRET, secret).apply();
+    }
+
+    private String getSecretFromKeyStore() {
+        String base64Encrypted = prefs.getString(PREF_KEY_ENCRYPTED_SECRET, "");
+        if (!base64Encrypted.isEmpty()) {
+            try {
+                SecretKey key = getOrCreateMasterKey();
+                if (key != null) {
+                    byte[] combined = Base64.decode(base64Encrypted, Base64.NO_WRAP);
+                    if (combined.length > 12) {
+                        byte[] iv = new byte[12];
+                        byte[] ciphertext = new byte[combined.length - 12];
+                        System.arraycopy(combined, 0, iv, 0, 12);
+                        System.arraycopy(combined, 12, ciphertext, 0, ciphertext.length);
+
+                        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+                        GCMParameterSpec spec = new GCMParameterSpec(128, iv);
+                        cipher.init(Cipher.DECRYPT_MODE, key, spec);
+                        byte[] decrypted = cipher.doFinal(ciphertext);
+                        return new String(decrypted, StandardCharsets.UTF_8);
+                    }
+                }
+            } catch (Exception e) {
+                android.util.Log.e("WakeX.KeyStore", "Decryption error", e);
+            }
+        }
+        return prefs.getString(PREF_KEY_CLIENT_SECRET, "");
+    }
+
     private WebView webView;
     private FrameLayout rootLayout;
     private LinearLayout errorLayout;
@@ -136,10 +225,8 @@ public class MainActivity extends Activity {
             @JavascriptInterface
             public void saveCredentials(String clientId, String secret) {
                 if (clientId != null && secret != null) {
-                    prefs.edit()
-                        .putString(PREF_KEY_CLIENT_ID, clientId)
-                        .putString(PREF_KEY_CLIENT_SECRET, secret)
-                        .apply();
+                    prefs.edit().putString(PREF_KEY_CLIENT_ID, clientId).apply();
+                    storeSecretInKeyStore(secret);
                 }
             }
 
@@ -150,7 +237,28 @@ public class MainActivity extends Activity {
 
             @JavascriptInterface
             public String getClientSecret() {
-                return prefs.getString(PREF_KEY_CLIENT_SECRET, "");
+                return getSecretFromKeyStore();
+            }
+
+            @JavascriptInterface
+            public String signRequest(String method, String path, String timestamp, String nonce, String bodyHash) {
+                String secret = getSecretFromKeyStore();
+                if (secret == null || secret.isEmpty()) return "";
+                try {
+                    String signString = method.toUpperCase() + ":" + path + ":" + timestamp + ":" + nonce + ":" + bodyHash;
+                    Mac hmac = Mac.getInstance("HmacSHA256");
+                    SecretKeySpec keySpec = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+                    hmac.init(keySpec);
+                    byte[] hash = hmac.doFinal(signString.getBytes(StandardCharsets.UTF_8));
+                    StringBuilder hex = new StringBuilder();
+                    for (byte b : hash) {
+                        hex.append(String.format("%02x", b));
+                    }
+                    return hex.toString();
+                } catch (Exception e) {
+                    android.util.Log.e("WakeX.KeyStore", "Native HMAC sign error: " + e.getMessage());
+                    return "";
+                }
             }
 
             @JavascriptInterface

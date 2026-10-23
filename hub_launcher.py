@@ -77,6 +77,29 @@ def open_mobile_url(icon=None, item=None):
     ip = get_local_ip()
     webbrowser.open(f"http://{ip}:{PORT}")
 
+def show_pairing_pin(icon=None, item=None):
+    from engine import security
+    code = security.generate_pairing_code()
+    local_ip = get_local_ip()
+    logger.info(f"Generated mobile pairing PIN from tray menu: {code}")
+
+    # Also open the dashboard with the code in view
+    webbrowser.open(f"http://localhost:{PORT}/#pair-code={code}")
+
+    # Display Topmost Windows Dialog with the 6-digit one-time code
+    try:
+        import ctypes
+        msg = (
+            f"WakeX Mobile Pairing PIN:\n\n"
+            f"         {code}\n\n"
+            f"Enter this 6-digit PIN on your phone in the WakeX app within 5 minutes.\n"
+            f"Mobile Hub URL: http://{local_ip}:{PORT}\n\n"
+            f"Security: 256-bit local encryption (Zero Cloud)."
+        )
+        ctypes.windll.user32.MessageBoxW(0, msg, "WakeX Device Pairing PIN", 0x00000040 | 0x00040000)
+    except Exception as e:
+        logger.warning(f"MessageBox error: {e}")
+
 def on_exit(icon, item):
     logger.info("Exiting WakeX Hub from system tray...")
     icon.stop()
@@ -107,6 +130,7 @@ def main():
 
         menu = pystray.Menu(
             pystray.MenuItem("⚡ Open WakeX Dashboard", open_dashboard, default=True),
+            pystray.MenuItem("🔑 Pair Mobile (Show One-Time PIN)", show_pairing_pin),
             pystray.MenuItem(f"📱 Mobile URL: http://{local_ip}:{PORT}", open_mobile_url),
             pystray.MenuItem(f"🟢 Status: 24/7 Active (Port {PORT})", None, enabled=False),
             pystray.Menu.SEPARATOR,
