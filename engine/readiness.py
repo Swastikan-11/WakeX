@@ -2,7 +2,8 @@
 WakeX Hardware & Wake-on-LAN Guided Readiness Diagnostic Engine
 Analyzes physical network cards, AC power, Modern Standby / Sleep states,
 Windows Fast Startup, firewall status, and wake timers.
-Reports plain-language diagnostics, readiness score, and actionable tips.
+Reports plain-language diagnostics, readiness score, actionable tips,
+and explicitly identifies which adapter MAC will actually wake the PC.
 """
 import os
 import sys
@@ -20,12 +21,13 @@ CURRENT_OS = platform.system().lower()
 def get_wol_readiness() -> Dict[str, Any]:
     """
     Executes a comprehensive hardware and system inspection for Wake-on-LAN and WoWLAN.
-    Returns structured results, readiness score (0-100), and plain-language recommendations.
+    Returns structured results, readiness score (0-100), actionable plain-language fixes,
+    and shows which adapter MAC will actually wake the PC.
     """
     report = {
         "os": CURRENT_OS,
         "readiness_score": 0,
-        "status": "ready",  # "ready", "degraded", "not_configured"
+        "status": "ready",
         "adapters": [],
         "active_adapter": None,
         "ac_power": True,
@@ -33,7 +35,8 @@ def get_wol_readiness() -> Dict[str, Any]:
         "sleep_states": [],
         "fast_startup": None,
         "checks": [],
-        "actionable_tips": []
+        "actionable_tips": [],
+        "wake_guidance": {}
     }
 
     checks_passed = 0
@@ -50,10 +53,11 @@ def get_wol_readiness() -> Dict[str, Any]:
                 report["checks"].append({
                     "name": "AC Power Connection",
                     "status": "warning",
-                    "detail": f"Running on Battery ({bat.percent}%). Laptops cut Wi-Fi card power in S5 cold shutdown when unplugged."
+                    "detail": f"Running on Battery ({bat.percent}%). Laptops cut Wi-Fi card power in complete 0W shutdown when unplugged.",
+                    "fix": "Plug in your laptop AC charger for reliable remote power on from cold shutdown."
                 })
                 report["actionable_tips"].append(
-                    "Connect your AC laptop charger for reliable remote power on from complete shutdown."
+                    "Plug in your laptop AC charger for reliable remote power on from complete shutdown."
                 )
             else:
                 checks_passed += 1
@@ -63,7 +67,6 @@ def get_wol_readiness() -> Dict[str, Any]:
                     "detail": f"Connected to AC Power ({bat.percent}%)."
                 })
         else:
-            # Desktop PC (no battery)
             checks_passed += 1
             report["ac_power"] = True
             report["checks"].append({
@@ -95,13 +98,14 @@ def get_wol_readiness() -> Dict[str, Any]:
                 report["checks"].append({
                     "name": "OS Sleep States",
                     "status": "pass",
-                    "detail": f"Supported: {', '.join(states)}"
+                    "detail": f"Supported states: {', '.join(states)}"
                 })
             else:
                 report["checks"].append({
                     "name": "OS Sleep States",
                     "status": "warning",
-                    "detail": "Neither S3 nor S0ix low-power standby detected."
+                    "detail": "Neither S3 nor S0ix low-power standby detected.",
+                    "fix": "Enable S3/S0ix Standby in BIOS power management settings."
                 })
         except Exception as e:
             logger.warning(f"Sleep states query error: {e}")
@@ -116,7 +120,8 @@ def get_wol_readiness() -> Dict[str, Any]:
                 report["checks"].append({
                     "name": "Windows Fast Startup",
                     "status": "info",
-                    "detail": "Fast Startup is Enabled. Note: Fast Startup places Windows in hybrid hibernation; Modern Standby Sleep (🌙) is recommended for instant wake."
+                    "detail": "Fast Startup is Enabled. Windows enters hybrid hibernation on shutdown.",
+                    "fix": "For instant wake over Wi-Fi, put your PC into Sleep (🌙). For cold 0W wake, an Ethernet cable is recommended."
                 })
             else:
                 checks_passed += 1
@@ -129,7 +134,27 @@ def get_wol_readiness() -> Dict[str, Any]:
         except Exception:
             pass
 
-        # 4. Network Adapters & Hardware MAC Check
+        # 4. Network Adapters & Advanced Wake Driver Settings
+        # Query driver properties directly via Get-NetAdapterAdvancedProperty
+        wake_properties = {}
+        try:
+            ps_prop = "Get-NetAdapterAdvancedProperty -DisplayName '*Wake*' -ErrorAction SilentlyContinue | Select-Object Name, DisplayName, DisplayValue | ConvertTo-Json -Compress"
+            r_prop = subprocess.run(["powershell", "-NoProfile", "-Command", ps_prop], capture_output=True, text=True, timeout=6)
+            if r_prop.returncode == 0 and r_prop.stdout.strip():
+                raw_prop = json.loads(r_prop.stdout)
+                if isinstance(raw_prop, dict):
+                    raw_prop = [raw_prop]
+                for p in raw_prop:
+                    adapter_name = p.get("Name", "")
+                    prop_name = p.get("DisplayName", "")
+                    prop_val = p.get("DisplayValue", "")
+                    if adapter_name not in wake_properties:
+                        wake_properties[adapter_name] = {}
+                    wake_properties[adapter_name][prop_name] = prop_val
+        except Exception as e:
+            logger.debug(f"Wake advanced property query note: {e}")
+
+        # Query network adapters
         try:
             ps_net = (
                 "Get-NetAdapter | Select-Object Name, InterfaceDescription, Status, MacAddress, LinkSpeed | "
@@ -151,13 +176,42 @@ def get_wol_readiness() -> Dict[str, Any]:
                         is_up = str(item.get("Status", "")).lower() == "up"
                         is_wifi = "wi-fi" in name.lower() or "wireless" in desc.lower() or "802.11" in desc.lower()
 
+                        # Check adapter-specific wake property
+                        adapter_wake_props = wake_properties.get(name, {})
+                        magic_wake_val = adapter_wake_props.get("Wake on Magic Packet", "Unknown")
+
+                        if not is_wifi:
+                            # Ethernet NIC
+                            will_wake = "Cold Wake (0W Shutdown) & Sleep"
+                            recommended = True
+                            magic_enabled = "enabled" in magic_wake_val.lower()
+                            verdict = (
+                                "⭐ WILL WAKE PC reliably from cold shutdown (0W) and sleep when an Ethernet cable is plugged in."
+                                if magic_enabled else
+                                "⚠️ Ethernet adapter present, but 'Wake on Magic Packet' is disabled in driver properties."
+                            )
+                        else:
+                            # Wi-Fi NIC
+                            will_wake = "Standby Wake (Modern Standby S0ix / Sleep only)"
+                            recommended = False
+                            magic_enabled = "enabled" in magic_wake_val.lower()
+                            verdict = (
+                                "📶 CAN WAKE PC from Sleep / Modern Standby on AC power. Cannot wake from 0W cold shutdown."
+                                if magic_enabled else
+                                "⚠️ Wi-Fi 'Wake on Magic Packet' is currently Disabled in driver properties. Run enable_wowlan.bat to enable it."
+                            )
+
                         ad_entry = {
                             "name": name,
                             "description": desc,
                             "mac": clean_mac,
                             "status": "Up" if is_up else "Disconnected",
                             "type": "Wi-Fi (WoWLAN)" if is_wifi else "Ethernet (WoL)",
-                            "is_active": is_up
+                            "is_active": is_up,
+                            "wake_on_magic_packet": magic_wake_val,
+                            "can_wake_from": will_wake,
+                            "is_primary_cold_wake": not is_wifi,
+                            "verdict": verdict
                         }
                         adapters.append(ad_entry)
                         if is_up and not report["active_adapter"]:
@@ -169,13 +223,14 @@ def get_wol_readiness() -> Dict[str, Any]:
                     report["checks"].append({
                         "name": "Active Network Card",
                         "status": "pass",
-                        "detail": f"{report['active_adapter']['name']} ({report['active_adapter']['description']}) • MAC: {report['active_adapter']['mac']}"
+                        "detail": f"{report['active_adapter']['name']} ({report['active_adapter']['mac']}) is connected."
                     })
                 else:
                     report["checks"].append({
                         "name": "Active Network Card",
                         "status": "warning",
-                        "detail": "No active network interface with link detected."
+                        "detail": "No active network interface with link detected.",
+                        "fix": "Connect your PC to home Wi-Fi or plug in an Ethernet cable."
                     })
         except Exception as e:
             logger.warning(f"Network adapter query error: {e}")
@@ -189,13 +244,14 @@ def get_wol_readiness() -> Dict[str, Any]:
                 report["checks"].append({
                     "name": "Windows Defender Firewall",
                     "status": "pass",
-                    "detail": "WakeX Inbound Firewall Rule is Active."
+                    "detail": "WakeX Inbound Firewall Rule is Active (Ports 8000 & 8002)."
                 })
             else:
                 report["checks"].append({
                     "name": "Windows Defender Firewall",
                     "status": "warning",
-                    "detail": "No explicit WakeX inbound rule found. Run enable_wowlan.bat to ensure ports are open."
+                    "detail": "No explicit WakeX inbound firewall rule found.",
+                    "fix": "Right-click 'enable_wowlan.bat' and Run as Administrator to open firewall ports."
                 })
                 report["actionable_tips"].append(
                     "Right-click 'enable_wowlan.bat' and Run as Administrator to configure firewall and network profile."
@@ -222,10 +278,20 @@ def get_wol_readiness() -> Dict[str, Any]:
     else:
         report["status"] = "degraded"
 
-    # Add general tip regarding Ethernet vs Wi-Fi
-    if report.get("active_adapter") and "wi-fi" in report["active_adapter"].get("type", "").lower():
+    # Identify primary cold wake MAC vs standby MAC
+    eth_adapter = next((a for a in report["adapters"] if not "wi-fi" in a["type"].lower()), None)
+    wifi_adapter = next((a for a in report["adapters"] if "wi-fi" in a["type"].lower()), None)
+
+    report["wake_guidance"] = {
+        "primary_cold_wake_mac": eth_adapter["mac"] if eth_adapter else (report["adapters"][0]["mac"] if report["adapters"] else "None"),
+        "primary_cold_wake_name": eth_adapter["name"] if eth_adapter else "Ethernet",
+        "standby_wake_mac": wifi_adapter["mac"] if wifi_adapter else "None",
+        "summary": "Ethernet wakes from complete 0W shutdown. Wi-Fi wakes from Sleep (Modern Standby) while on AC power."
+    }
+
+    if wifi_adapter and "disabled" in wifi_adapter.get("wake_on_magic_packet", "").lower():
         report["actionable_tips"].append(
-            "Wi-Fi WoWLAN is active. For instant wake, put your PC into Sleep (🌙) rather than cold shutdown. If cold wake is required, connect an Ethernet cable."
+            f"Wi-Fi Wake on Magic Packet is disabled in device properties for {wifi_adapter['name']}. Run enable_wowlan.bat to enable it."
         )
 
     return report

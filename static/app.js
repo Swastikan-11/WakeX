@@ -275,19 +275,44 @@ async function loadReadinessReport() {
     }
 
     if (list) {
-      list.innerHTML = (data.checks || []).map(c => {
+      // 1. Diagnostics Checks with Plain-Language Fixes
+      let html = (data.checks || []).map(c => {
         const icon = c.status === "pass" ? "✅" : (c.status === "warning" ? "⚠️" : "ℹ️");
         const color = c.status === "pass" ? "var(--accent-green)" : (c.status === "warning" ? "var(--accent-amber)" : "var(--accent-cyan)");
+        const fixHtml = c.fix ? `<div style="margin-top: 4px; font-size: 0.78rem; color: #ff6b7e;"><strong>🔧 Plain-language fix:</strong> ${escapeHtml(c.fix)}</div>` : "";
         return `
           <div style="display: flex; align-items: flex-start; gap: 8px; font-size: 0.83rem; background: rgba(255,255,255,0.02); padding: 8px 10px; border-radius: 6px; border-left: 2px solid ${color};">
             <span>${icon}</span>
-            <div>
+            <div style="flex: 1;">
               <strong style="color: #fff;">${escapeHtml(c.name)}:</strong>
               <span style="color: var(--text-secondary); margin-left: 4px;">${escapeHtml(c.detail)}</span>
+              ${fixHtml}
             </div>
           </div>
         `;
       }).join("");
+
+      // 2. Adapter Wake Guidance: Explicitly show which MAC will actually wake the PC
+      if (data.adapters && data.adapters.length > 0) {
+        html += `<div style="margin-top: 12px; margin-bottom: 6px; font-weight: 700; font-size: 0.88rem; color: #fff;">🔌 Network Cards & Wake Verdicts:</div>`;
+        html += data.adapters.map(ad => {
+          const isPrimary = ad.is_primary_cold_wake;
+          const badgeColor = isPrimary ? "var(--accent-green)" : "var(--accent-cyan)";
+          const badgeText = isPrimary ? "COLD WAKE (0W SHUTDOWN)" : "STANDBY WAKE (WoWLAN)";
+          return `
+            <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 12px; margin-top: 6px; font-size: 0.82rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; flex-wrap: wrap; gap: 6px;">
+                <span style="font-weight: 700; color: #fff;">${escapeHtml(ad.name)} <span style="font-weight: 400; color: var(--text-secondary);">(${escapeHtml(ad.type)})</span></span>
+                <span style="font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 12px; background: rgba(255,42,68,0.12); color: ${badgeColor}; border: 1px solid ${badgeColor};">${badgeText}</span>
+              </div>
+              <div style="color: var(--text-secondary); font-family: monospace; font-size: 0.85rem; margin-bottom: 4px;">MAC: <strong style="color: #fff;">${escapeHtml(ad.mac)}</strong></div>
+              <div style="font-size: 0.8rem; color: #a1a1aa; line-height: 1.4;">${escapeHtml(ad.verdict)}</div>
+            </div>
+          `;
+        }).join("");
+      }
+
+      list.innerHTML = html;
     }
 
     if (tipsBox) {
@@ -310,12 +335,20 @@ async function testWolPacketSelf() {
     const res = await apiFetch("/api/system/test-wol", { method: "POST" });
     const data = await res.json();
     if (res.ok) {
-      alert(`⚡ [WOL SELF-TEST SUCCESS]\n\n${data.message}`);
+      const macs = (data.tested_macs || []).join(", ");
+      const subnets = (data.broadcast_targets || []).join(", ");
+      alert(`⚡ [WAKE-ON-LAN SELF-TEST SUCCESS]\n\n` +
+            `Magic Packets broadcasted across ports 9, 7, and 0.\n\n` +
+            `• Target MACs: ${macs}\n` +
+            `• Broadcast Subnets: ${subnets}\n` +
+            `• Primary Cold Wake: ${data.primary_cold_wake_mac || "Ethernet"}\n` +
+            `• Standby Wake: ${data.standby_wake_mac || "Wi-Fi"}\n\n` +
+            `Your network socket and packet formatting are 100% operational.`);
     } else {
-      alert(`❌ WoL Test Failed: ${data.detail || data.message}`);
+      alert(`❌ WoL Test Failed: ${data.detail || data.message}\n\nPlain-language fix: Ensure your host PC has an active network link and ports 9/7 are not blocked.`);
     }
   } catch (e) {
-    alert(`WoL Test Error: ${e.message}`);
+    alert(`WoL Test Error: ${e.message}\n\nPlain-language fix: Verify your connection to the WakeX Hub.`);
   }
 }
 

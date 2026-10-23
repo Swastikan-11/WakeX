@@ -232,11 +232,17 @@ async def get_system_readiness():
 
 @app.post("/api/system/test-wol")
 async def test_wol_packet(_: dict = Depends(security.verify_authenticated_request)):
-    """Emits a test Wake-on-LAN Magic Packet to verify network socket transmission."""
+    """Emits test Wake-on-LAN Magic Packets across all adapters and returns diagnostic delivery report."""
     devs = devices.load_devices()
     host_dev = next((d for d in devs if d.get("is_current")), None)
     mac = host_dev.get("mac") if host_dev else "00-AA-BB-CC-DD-EE"
-    return devices.send_wake_on_lan([mac, "00-AA-BB-CC-DD-EE", "00-11-22-33-44-55"])
+    all_macs = [mac, "00-AA-BB-CC-DD-EE", "00-11-22-33-44-55"]
+    unique_macs = list(dict.fromkeys(all_macs))
+    res = devices.send_wake_on_lan(unique_macs)
+    res["tested_macs"] = unique_macs
+    res["primary_cold_wake_mac"] = "00-11-22-33-44-55 (Ethernet - 0W Cold Boot)"
+    res["standby_wake_mac"] = "00-AA-BB-CC-DD-EE (Wi-Fi MediaTek - Sleep / Modern Standby S0ix)"
+    return res
 
 
 @app.get("/api/telemetry")

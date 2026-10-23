@@ -707,10 +707,102 @@ public class MainActivity extends Activity {
         }).start();
     }
 
+    private volatile boolean isRebinding = false;
+
+    private void autoRebindOnIpChange() {
+        if (isRebinding) return;
+        isRebinding = true;
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    // Step 1: Fast UDP Discovery probe on port 8002
+                    DatagramSocket socket = new DatagramSocket();
+                    socket.setBroadcast(true);
+                    socket.setSoTimeout(1000);
+
+                    byte[] ping = "WAKEX_DISCOVER".getBytes(StandardCharsets.UTF_8);
+                    InetAddress globalBroadcast = InetAddress.getByName("255.255.255.255");
+                    socket.send(new DatagramPacket(ping, ping.length, globalBroadcast, 8002));
+
+                    String subPrefix = getLocalSubnetPrefix();
+                    try {
+                        InetAddress subBroadcast = InetAddress.getByName(subPrefix + "255");
+                        socket.send(new DatagramPacket(ping, ping.length, subBroadcast, 8002));
+                    } catch (Exception ignored) {}
+
+                    byte[] buf = new byte[1024];
+                    DatagramPacket resp = new DatagramPacket(buf, buf.length);
+                    socket.receive(resp);
+                    String jsonStr = new String(resp.getData(), 0, resp.getLength(), StandardCharsets.UTF_8);
+                    JSONObject obj = new JSONObject(jsonStr);
+                    final String discoveredIp = obj.getString("ip");
+                    final int discoveredPort = obj.getInt("port");
+                    final String newTarget = discoveredIp + ":" + discoveredPort;
+                    socket.close();
+
+                    String savedUrl = prefs.getString(PREF_KEY_URL, DEFAULT_URL).replace("http://", "").replace("https://", "");
+                    if (!savedUrl.equals(newTarget)) {
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                prefs.edit().putString(PREF_KEY_URL, newTarget).apply();
+                                if (ipEditText != null) ipEditText.setText(newTarget);
+                                Toast.makeText(MainActivity.this, "🔄 PC IP changed! Auto-rebound to " + newTarget, Toast.LENGTH_LONG).show();
+                                loadWakeX();
+                            }
+                        });
+                        isRebinding = false;
+                        return;
+                    }
+                } catch (Exception ignored) {
+                    // Fall back to quick /24 subnet probe
+                }
+
+                // Step 2: Fallback quick /24 subnet probe on port 8000
+                final String subnetPrefix = getLocalSubnetPrefix();
+                for (int i = 1; i <= 254; i++) {
+                    final String testIp = subnetPrefix + i;
+                    try {
+                        java.net.Socket s = new java.net.Socket();
+                        s.connect(new java.net.InetSocketAddress(testIp, 8000), 100);
+                        s.close();
+                        final String foundTarget = testIp + ":8000";
+                        String savedUrl = prefs.getString(PREF_KEY_URL, DEFAULT_URL).replace("http://", "").replace("https://", "");
+                        if (!savedUrl.equals(foundTarget)) {
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    prefs.edit().putString(PREF_KEY_URL, foundTarget).apply();
+                                    if (ipEditText != null) ipEditText.setText(foundTarget);
+                                    Toast.makeText(MainActivity.this, "🔄 Auto-rebound to PC at " + foundTarget, Toast.LENGTH_LONG).show();
+                                    loadWakeX();
+                                }
+                            });
+                            isRebinding = false;
+                            return;
+                        }
+                    } catch (Exception ignored) {}
+                }
+                isRebinding = false;
+            }
+        }).start();
+    }
+
     private void showErrorScreen(String errorMsg) {
         updateNetworkBanner();
         String currentUrl = prefs.getString(PREF_KEY_URL, DEFAULT_URL);
-        errorUrlText.setText(errorMsg + "\nTarget: " + currentUrl);
+
+        String diagnosticHint;
+        if (!isConnectedToWifi()) {
+            diagnosticHint = "⚠️ Phone is on Cellular Data. Connect to your home Wi-Fi network to reach your PC.";
+        } else {
+            diagnosticHint = "💡 If your PC is asleep or powered off, tap 'Turn On PC' below to send a Wake-on-LAN signal.\nSearching network for PC IP changes...";
+            autoRebindOnIpChange();
+        }
+
+        errorUrlText.setText(errorMsg + "\nTarget: " + currentUrl + "\n\n" + diagnosticHint);
         ipEditText.setText(currentUrl.replace("http://", "").replace("https://", ""));
         errorLayout.setVisibility(View.VISIBLE);
         webView.setVisibility(View.GONE);
