@@ -15,22 +15,41 @@ document.addEventListener("DOMContentLoaded", async () => {
   startAppServices();
 });
 
-// --- Cryptographic Web Crypto HMAC-SHA256 Signer ---
-async function computeHmacSha256(secret, message) {
-  const encoder = new TextEncoder();
-  const keyData = encoder.encode(secret);
-  const cryptoKey = await window.crypto.subtle.importKey(
-    "raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
-  );
-  const sigBuffer = await window.crypto.subtle.sign("HMAC", cryptoKey, encoder.encode(message));
-  return Array.from(new Uint8Array(sigBuffer))
-    .map(b => b.toString(16).padStart(2, '0')).join('');
+// --- Cryptographic HMAC-SHA256 & SHA256 Engine ---
+async function computeSha256Hex(dataBytesOrStr) {
+  if (window.crypto && window.crypto.subtle) {
+    try {
+      const buffer = typeof dataBytesOrStr === "string" ? new TextEncoder().encode(dataBytesOrStr) : dataBytesOrStr;
+      const digest = await window.crypto.subtle.digest("SHA-256", buffer);
+      return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {
+      // Fallback
+    }
+  }
+  if (window.sha256) {
+    return window.sha256.hex(dataBytesOrStr);
+  }
+  throw new Error("No cryptographic SHA-256 provider available.");
 }
 
-async function computeSha256(dataBytes) {
-  const digest = await window.crypto.subtle.digest("SHA-256", dataBytes);
-  return Array.from(new Uint8Array(digest))
-    .map(b => b.toString(16).padStart(2, '0')).join('');
+async function computeHmacSha256Hex(secret, message) {
+  if (window.crypto && window.crypto.subtle) {
+    try {
+      const encoder = new TextEncoder();
+      const keyData = encoder.encode(secret);
+      const cryptoKey = await window.crypto.subtle.importKey(
+        "raw", keyData, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+      );
+      const sigBuffer = await window.crypto.subtle.sign("HMAC", cryptoKey, encoder.encode(message));
+      return Array.from(new Uint8Array(sigBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {
+      // Fallback
+    }
+  }
+  if (window.sha256 && typeof window.sha256.hmac === "function") {
+    return window.sha256.hmac.hex(secret, message);
+  }
+  throw new Error("No cryptographic HMAC-SHA256 provider available.");
 }
 
 async function getAuthHeaders(method = "GET", path = "", bodyStr = "") {
@@ -43,28 +62,39 @@ async function getAuthHeaders(method = "GET", path = "", bodyStr = "") {
     headers["X-WakeX-Local-Token"] = localToken;
   }
 
-  // Check SharedPreferences if running in native Android app
-  if (window.AndroidWakeX && typeof window.AndroidWakeX.getClientId === "function") {
+  // 1. Hardware-Backed Native Bridge in Android Companion (Prefer Native Bridge)
+  if (window.AndroidWakeX && typeof window.AndroidWakeX.signRequest === "function") {
     const nativeId = window.AndroidWakeX.getClientId();
-    const nativeSecret = window.AndroidWakeX.getClientSecret();
-    if (nativeId && nativeSecret && !localStorage.getItem("wakex_client_id")) {
-      localStorage.setItem("wakex_client_id", nativeId);
-      localStorage.setItem("wakex_client_secret", nativeSecret);
+    if (nativeId) {
+      const ts = Math.floor(Date.now() / 1000).toString();
+      const nonce = (window.crypto && typeof window.crypto.getRandomValues === "function")
+        ? Array.from(window.crypto.getRandomValues(new Uint8Array(8))).map(b => b.toString(16).padStart(2, '0')).join('')
+        : (Date.now().toString(16) + Math.random().toString(16).substring(2, 10));
+      const bodyHex = await computeSha256Hex(bodyStr || "");
+      const sig = window.AndroidWakeX.signRequest(method, path, ts, nonce, bodyHex);
+      if (sig) {
+        headers["X-WakeX-Client-Id"] = nativeId;
+        headers["X-WakeX-Timestamp"] = ts;
+        headers["X-WakeX-Nonce"] = nonce;
+        headers["X-WakeX-Signature"] = sig;
+        return headers;
+      }
     }
   }
 
+  // 2. Browser Signing (Supports both Web Crypto API in secure contexts and vendored js-sha256 on plain HTTP)
   const clientId = localStorage.getItem("wakex_client_id");
   const clientSecret = localStorage.getItem("wakex_client_secret");
 
-  if (clientId && clientSecret && window.crypto && window.crypto.subtle) {
+  if (clientId && clientSecret) {
     const ts = Math.floor(Date.now() / 1000).toString();
-    const nonce = Array.from(window.crypto.getRandomValues(new Uint8Array(8)))
-      .map(b => b.toString(16).padStart(2, '0')).join('');
+    const nonce = (window.crypto && typeof window.crypto.getRandomValues === "function")
+      ? Array.from(window.crypto.getRandomValues(new Uint8Array(8))).map(b => b.toString(16).padStart(2, '0')).join('')
+      : (Date.now().toString(16) + Math.random().toString(16).substring(2, 10));
 
-    const bodyBytes = bodyStr ? new TextEncoder().encode(bodyStr) : new Uint8Array(0);
-    const bodyHex = await computeSha256(bodyBytes);
+    const bodyHex = await computeSha256Hex(bodyStr || "");
     const message = `${method.toUpperCase()}:${path}:${ts}:${nonce}:${bodyHex}`;
-    const sig = await computeHmacSha256(clientSecret, message);
+    const sig = await computeHmacSha256Hex(clientSecret, message);
 
     headers["X-WakeX-Client-Id"] = clientId;
     headers["X-WakeX-Timestamp"] = ts;

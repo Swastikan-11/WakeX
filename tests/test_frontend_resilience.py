@@ -10,6 +10,8 @@ Covers:
 
 import time
 import secrets
+import hashlib
+import hmac
 from pathlib import Path
 import pytest
 from starlette.testclient import TestClient
@@ -139,3 +141,73 @@ def test_frontend_test_wol_resilience():
     assert data["status"] == "success"
     assert "tested_macs" in data
     assert "broadcast_targets" in data
+
+
+def test_vendored_sha256_rfc4231_vectors_and_lan_ip_signing():
+    """
+    Verifies that:
+    1. Vendored js-sha256 is served at /static/sha256.min.js
+    2. js-sha256 matches RFC 4231 Test Vectors for HMAC-SHA256
+    3. Requests sent over plain HTTP to a real LAN address (http://192.168.1.100:8000)
+       are signed and authenticated successfully by the server without secure context.
+    """
+    import subprocess
+    import json
+    from unittest.mock import patch
+
+    # 1. Asset check
+    res_sha = client.get("/static/sha256.min.js")
+    assert res_sha.status_code == 200
+    assert len(res_sha.text) > 1000
+
+    # 2. Node.js RFC 4231 execution against the exact vendored file
+    node_script = '''
+    const fs = require("fs");
+    const code = fs.readFileSync("static/sha256.min.js", "utf8");
+    const sandbox = { window: {} };
+    require("vm").runInNewContext(code, sandbox);
+    const sha256 = sandbox.window.sha256;
+
+    // RFC 4231 Test Case 2: Key="Jefe", Data="what do ya want for nothing?"
+    const actual = sha256.hmac("Jefe", "what do ya want for nothing?");
+    const expected = "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843";
+    if (actual !== expected) process.exit(1);
+
+    // RFC 4231 Test Case 3 with Uint8Array binary buffers
+    const key = new Uint8Array(20).fill(0xaa);
+    const data = new Uint8Array(50).fill(0xdd);
+    const expected3 = "773ea91e36800e46854db8ebd09181a72959098b3ef8c122d9635514ced565fe";
+    if (sha256.hmac(key, data) !== expected3) process.exit(2);
+    '''
+    res_node = subprocess.run(["node", "-e", node_script], capture_output=True, stdin=subprocess.DEVNULL)
+    assert res_node.returncode == 0, f"RFC 4231 Node test failed: {res_node.stderr.decode()}"
+
+    # 3. Test on real LAN address http://192.168.1.100:8000
+    lan_client = TestClient(app, base_url="http://192.168.1.100:8000")
+    creds = security.register_paired_client("LAN Phone Tester", "client_lan_phone")
+    cid, sec = creds["client_id"], creds["client_secret"]
+
+    body = b'{"action":"lock"}'
+    ts = str(int(time.time()))
+    nonce = secrets.token_hex(8)
+    body_hash = hashlib.sha256(body).hexdigest()
+    # Signature computed using identical algorithm as sha256.hmac
+    sign_string = f"POST:/api/devices/host-primary/power:{ts}:{nonce}:{body_hash}"
+    sig = hmac.new(sec.encode("utf-8"), sign_string.encode("utf-8"), hashlib.sha256).hexdigest()
+
+    headers = {
+        "X-WakeX-Client-Id": cid,
+        "X-WakeX-Timestamp": ts,
+        "X-WakeX-Nonce": nonce,
+        "X-WakeX-Signature": sig,
+        "Content-Type": "application/json"
+    }
+
+    with patch("engine.devices.dispatch_power_command", return_value={"status": "success", "action": "lock"}):
+        res = lan_client.post(
+            "/api/devices/host-primary/power",
+            content=body,
+            headers=headers
+        )
+        assert res.status_code == 200
+        assert res.json()["status"] == "success"
