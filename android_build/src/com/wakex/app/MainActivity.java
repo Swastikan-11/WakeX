@@ -216,9 +216,9 @@ public class MainActivity extends Activity {
         webView.addJavascriptInterface(new Object() {
             @JavascriptInterface
             public void sendWoL(String mac) {
-                String savedMacs = prefs.getString(PREF_KEY_DEVICE_MACS, "00-AA-BB-CC-DD-EE,00-11-22-33-44-55");
+                String savedMacs = prefs.getString(PREF_KEY_DEVICE_MACS, "00-11-22-33-44-55,00-AA-BB-CC-DD-EE");
                 String[] macList = (mac != null && !mac.isEmpty()) 
-                    ? new String[]{mac, "00-AA-BB-CC-DD-EE", "00-11-22-33-44-55"} 
+                    ? new String[]{mac, "00-11-22-33-44-55", "00-AA-BB-CC-DD-EE"} 
                     : savedMacs.split(",");
                 sendWakeOnLan(macList);
             }
@@ -553,7 +553,7 @@ public class MainActivity extends Activity {
         turnOnBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                sendWakeOnLan(new String[]{"00-AA-BB-CC-DD-EE", "00-11-22-33-44-55"});
+                sendWakeOnLan(new String[]{"00-11-22-33-44-55", "00-AA-BB-CC-DD-EE"});
                 Toast.makeText(MainActivity.this, "⚡ Turn On packets broadcasted! Waiting for PC...", Toast.LENGTH_LONG).show();
                 errorLayout.postDelayed(new Runnable() {
                     @Override
@@ -624,7 +624,7 @@ public class MainActivity extends Activity {
                 }
             }
         } catch (Exception ignored) {}
-        return "192.168.86.";
+        return "192.168.1.";
     }
 
     private void scanSubnetForWakeX() {
@@ -675,7 +675,7 @@ public class MainActivity extends Activity {
                 ExecutorService pool = Executors.newFixedThreadPool(32);
                 final AtomicReference<String> found = new AtomicReference<>(null);
 
-                String[] priorityIps = new String[]{"192.168.1.100", "192.168.1.7"};
+                String[] priorityIps = new String[]{"192.168.1.100", "192.168.1.50"};
                 for (String pIp : priorityIps) {
                     try {
                         java.net.Socket s0 = new java.net.Socket();
@@ -918,7 +918,7 @@ public class MainActivity extends Activity {
 
                         String[] broadcastIps = new String[]{
                             "255.255.255.255",
-                            "192.168.1.255",
+                            "10.0.0.255",
                             "192.168.1.255",
                             dynamicBroadcast
                         };

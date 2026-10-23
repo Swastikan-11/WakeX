@@ -34,7 +34,7 @@ public class WakeXTileService extends TileService {
         }
 
         SharedPreferences prefs = getSharedPreferences("WakeXPrefs", Context.MODE_PRIVATE);
-        String macs = prefs.getString("wakex_device_macs", "00-AA-BB-CC-DD-EE,00-11-22-33-44-55");
+        String macs = prefs.getString("wakex_device_macs", "00-11-22-33-44-55,00-AA-BB-CC-DD-EE");
         final String[] macList = macs.split(",");
 
         new Thread(new Runnable() {
@@ -59,7 +59,7 @@ public class WakeXTileService extends TileService {
                         DatagramSocket socket = new DatagramSocket();
                         socket.setBroadcast(true);
 
-                        String[] broadcasts = new String[]{"255.255.255.255", "192.168.1.255", "192.168.1.255"};
+                        String[] broadcasts = new String[]{"255.255.255.255", "192.168.1.255"};
                         for (String bIp : broadcasts) {
                             for (int port : new int[]{9, 7}) {
                                 try {

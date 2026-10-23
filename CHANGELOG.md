@@ -25,7 +25,7 @@ All notable changes to the WakeX project are documented here.
   - Added `tests/test_coverage_and_network.py` verifying UDP discovery responses, Hub IP re-binding on DHCP change, strict WoL ports, and mock executions for all 6 power actions across Windows and Linux.
   - Expanded `android_build/test/WakeXUnitTest.java` with UDP discovery payload parsing, IP re-bind detection, and connection watchdog state machine tests (now 52 pytest tests + 7 Android Java tests passing).
 - **Keystore Hygiene & Repository Secrets Sanitization:**
-  - Legacy `android_build/wakex.keystore` and password `[REDACTED]` marked compromised and untracked.
+  - Legacy `android_build/wakex.keystore` and password marked compromised and untracked.
   - Updated `build_apk.ps1` to generate and manage release signing keystores outside the git repository (`~/.wakex/`).
   - Added `*.keystore` and `*.jks` to `.gitignore`. Untracked `config/devices.json` and added clean template `config/devices.example.json`.
   - Added manual hardware verification results table to `docs/HARDWARE_CHECKLIST.md`.

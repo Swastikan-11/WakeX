@@ -206,6 +206,12 @@ def launch_single_app(app_id_or_path: str) -> bool:
 
 def load_workspaces() -> Dict[str, Any]:
     """Reads all configured workspace profiles with crash resilience."""
+    if not os.path.exists(CONFIG_PATH):
+        example_path = os.path.join(APP_DIR, "config", "workspaces.example.json")
+        if os.path.exists(example_path):
+            data = safe_read_json(example_path, default={"active_profile": "work_shift", "profiles": []})
+            save_workspaces(data)
+            return data
     data = safe_read_json(CONFIG_PATH, default={"active_profile": "work_shift", "profiles": []})
     return data if isinstance(data, dict) else {"active_profile": "work_shift", "profiles": []}
 

@@ -1,0 +1,45 @@
+{
+  "active_profile": "work_shift",
+  "profiles": [
+    {
+      "id": "work_shift",
+      "name": "General Work Shift",
+      "icon": "briefcase",
+      "description": "Standard work setup: Browser with work tabs and office software",
+      "browser": "chrome",
+      "urls": [
+        "https://mail.google.com",
+        "https://calendar.google.com",
+        "https://github.com"
+      ],
+      "applications": [
+        "code"
+      ]
+    },
+    {
+      "id": "dev_environment",
+      "name": "Developer Environment",
+      "icon": "code",
+      "description": "Code editor, Terminal, and developer documentation",
+      "browser": "chrome",
+      "urls": [
+        "https://github.com",
+        "https://stackoverflow.com"
+      ],
+      "applications": [
+        "code"
+      ]
+    },
+    {
+      "id": "browser_only",
+      "name": "Web & Browser Only",
+      "icon": "globe",
+      "description": "Launches essential work websites only without heavy software",
+      "browser": "chrome",
+      "urls": [
+        "https://google.com"
+      ],
+      "applications": []
+    }
+  ]
+}

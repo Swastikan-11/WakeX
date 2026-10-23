@@ -1,4 +1,4 @@
-# Python
+# Python & Bytecode
 __pycache__/
 *.py[cod]
 *$py.class
@@ -15,27 +15,39 @@ dist/
 *.manifest
 *.spec.bak
 
-# Android build intermediate artifacts
+# Android build intermediate & local artifacts
+android_build/bin/
 android_build/obj/
 android_build/test_classes/
 *.dex
 WakeX.apk.idsig
+local.properties
+
+# Secrets, private keys & certificates
+*.keystore
+*.jks
+*.pem
+*.key
+.env*
+release_keystore/
+
+# Local state, secrets, pairing tokens & nonces
+config/devices.json
+config/devices.json.bak
+config/workspaces.json
+config/workspaces.json.bak
+config/paired_clients.json
+config/paired_clients.json.bak
+config/seen_nonces.json
+agent/agent_config.json
+agent/agent_config.json.bak
+agent/seen_nonces.json
 
 # Local logs & audits
 *.log
 wakex_hub.log
 wakex_audit.log
-
-# Local secrets, keys & device pairings (Security First)
-*.keystore
-*.jks
-release_keystore/
-config/paired_clients.json
-config/paired_clients.json.bak
-config/devices.json
-config/devices.json.bak
-agent/agent_config.json
-agent/agent_config.json.bak
+gitleaks_report.json
 
 # IDE & OS
 .vscode/
@@ -43,10 +55,13 @@ agent/agent_config.json.bak
 .DS_Store
 Thumbs.db
 
+# Backup archives
+*.zip
+
 # Antigravity Scratch
 .gemini/
 
-# Unrelated temporary workspace assets
+# Temporary workspace assets
 LPC2148*
 extracted_assets/
 generated_assets/

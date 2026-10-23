@@ -41,10 +41,12 @@ def load_devices() -> list:
         default_devices = [
             {
                 "id": "dev_host_primary",
-                "name": "ASUS TUF Gaming F15",
+                "name": socket.gethostname() or "Host PC",
                 "type": "laptop",
-                "ip": cur_ip if cur_ip != "127.0.0.1" else "192.168.1.104",
+                "ip": cur_ip if cur_ip != "127.0.0.1" else "192.168.1.100",
                 "mac": "00-11-22-33-44-55",
+                "wifi_mac": "00-11-22-33-44-55",
+                "ethernet_mac": "00-AA-BB-CC-DD-EE",
                 "port": 8000,
                 "is_current": True,
                 "status": "online",
@@ -156,7 +158,7 @@ def send_wake_on_lan(mac_address, broadcast_ip: str = "255.255.255.255", port: i
     
     # Broadcast targets: global broadcast and local subnet broadcasts
     dynamic_sub = get_subnet_broadcast()
-    broadcast_targets = list(dict.fromkeys(["255.255.255.255", dynamic_sub, "192.168.1.255", "192.168.1.255", broadcast_ip]))
+    broadcast_targets = list(dict.fromkeys(["255.255.255.255", dynamic_sub, "192.168.1.255", broadcast_ip]))
 
     for mac in mac_list:
         if not mac or not isinstance(mac, str):

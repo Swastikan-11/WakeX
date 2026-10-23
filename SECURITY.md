@@ -82,7 +82,7 @@ The standalone root daemon (`agent/wakex_agent.py`):
 
 ## 4. Signing Key & Keystore Management
 
-- **Compromise Status of Legacy Keystore:** The legacy `android_build/wakex.keystore` (password `[REDACTED]`) has been marked compromised and purged from git tracking.
+- **Compromise Status of Legacy Keystore:** The legacy `android_build/wakex.keystore` (legacy test password) has been marked compromised and purged from git tracking.
 - **External Release Keystores:** APK build scripts now store release signing keystores outside the workspace at `~/.wakex/wakex_release.keystore` (or path configured in `$env:WAKEX_KEYSTORE_PATH`).
 - **Reinstallation Requirement:** Android devices with an older build signed with the legacy key must uninstall the existing app before installing new release APK builds due to Android's signature verification policy.
 

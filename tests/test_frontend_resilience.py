@@ -192,7 +192,7 @@ def test_vendored_sha256_rfc4231_vectors_and_lan_ip_signing():
     nonce = secrets.token_hex(8)
     body_hash = hashlib.sha256(body).hexdigest()
     # Signature computed using identical algorithm as sha256.hmac
-    sign_string = f"POST:/api/devices/host-primary/power:{ts}:{nonce}:{body_hash}"
+    sign_string = f"POST:/api/devices/dev_host_primary/power:{ts}:{nonce}:{body_hash}"
     sig = hmac.new(sec.encode("utf-8"), sign_string.encode("utf-8"), hashlib.sha256).hexdigest()
 
     headers = {
@@ -205,7 +205,7 @@ def test_vendored_sha256_rfc4231_vectors_and_lan_ip_signing():
 
     with patch("engine.devices.dispatch_power_command", return_value={"status": "success", "action": "lock"}):
         res = lan_client.post(
-            "/api/devices/host-primary/power",
+            "/api/devices/dev_host_primary/power",
             content=body,
             headers=headers
         )

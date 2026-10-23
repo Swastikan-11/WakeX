@@ -256,14 +256,16 @@ async def get_system_readiness():
 async def test_wol_packet(_: dict = Depends(security.verify_authenticated_request)):
     """Emits test Wake-on-LAN Magic Packets across all adapters and returns diagnostic delivery report."""
     devs = devices.load_devices()
-    host_dev = next((d for d in devs if d.get("is_current")), None)
-    mac = host_dev.get("mac") if host_dev else "00-AA-BB-CC-DD-EE"
-    all_macs = [mac, "00-AA-BB-CC-DD-EE", "00-11-22-33-44-55"]
+    host_dev = next((d for d in devs if d.get("is_current")), None) or {}
+    mac = host_dev.get("mac") or "00-11-22-33-44-55"
+    eth_mac = host_dev.get("ethernet_mac") or mac
+    wifi_mac = host_dev.get("wifi_mac") or mac
+    all_macs = [m for m in [mac, eth_mac, wifi_mac] if m]
     unique_macs = list(dict.fromkeys(all_macs))
     res = devices.send_wake_on_lan(unique_macs)
     res["tested_macs"] = unique_macs
-    res["primary_cold_wake_mac"] = "00-11-22-33-44-55 (Ethernet - 0W Cold Boot)"
-    res["standby_wake_mac"] = "00-AA-BB-CC-DD-EE (Wi-Fi MediaTek - Sleep / Modern Standby S0ix)"
+    res["primary_cold_wake_mac"] = f"{eth_mac} (Ethernet - 0W Cold Boot)"
+    res["standby_wake_mac"] = f"{wifi_mac} (Wi-Fi - Sleep / Modern Standby S0ix)"
     return res
 
 
@@ -331,7 +333,7 @@ async def execute_legacy_power(
     target_id = req.target_device_id
     if not target_id:
         devs = devices.load_devices()
-        host_dev = next((d for d in devs if d.get("is_current")), None)
+        host_dev = next((d for d in devs if d.get("is_current")), None) or {}
         target_id = host_dev["id"] if host_dev else "dev_host_primary"
 
     return await execute_device_power(target_id, req, request, auth_context)

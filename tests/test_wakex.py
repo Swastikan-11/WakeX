@@ -481,7 +481,7 @@ def test_wake_on_lan_magic_packet_structure():
     - 6 bytes of 0xFF
     - 16 repetitions of the target device's 6-byte MAC address.
     """
-    mac = "00-AA-BB-CC-DD-EE"
+    mac = "00-11-22-33-44-55"
     clean_mac = mac.replace("-", "").replace(":", "")
     mac_bytes = bytes.fromhex(clean_mac)
     assert len(mac_bytes) == 6
@@ -527,16 +527,16 @@ def test_agent_power_execution_dispatch(monkeypatch):
 
 def test_device_rename_and_persistence(monkeypatch):
     sample_devices = [
-        {"id": "host-primary", "name": "ASUS TUF Gaming F15", "ip": "192.168.1.100", "is_current": True},
-        {"id": "remote-node-2", "name": "Sanjay PC", "ip": "192.168.1.150", "is_current": False}
+        {"id": "host-primary", "name": "Primary Host PC", "ip": "192.168.1.100", "is_current": True},
+        {"id": "remote-node-2", "name": "Remote PC", "ip": "192.168.1.150", "is_current": False}
     ]
     monkeypatch.setattr(devices, "load_devices", lambda: [d.copy() for d in sample_devices])
     monkeypatch.setattr(devices, "save_devices", lambda devs: sample_devices.clear() or sample_devices.extend(devs) or True)
 
-    res = devices.rename_device("remote-node-2", "Sanjay Workstation")
+    res = devices.rename_device("remote-node-2", "Remote Workstation")
     assert res["status"] == "success"
     updated = next((d for d in sample_devices if d["id"] == "remote-node-2"), None)
-    assert updated["name"] == "Sanjay Workstation"
+    assert updated["name"] == "Remote Workstation"
 
 
 # ============================================================================

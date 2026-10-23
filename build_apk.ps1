@@ -1,14 +1,18 @@
 # WakeX APK Build Script (Java 21 + Android SDK Build-Tools 35)
 $ErrorActionPreference = "Stop"
 
-$sdkPath = "%LOCALAPPDATA%\Android\Sdk"
+$sdkPath = if ($env:ANDROID_HOME -and (Test-Path $env:ANDROID_HOME)) {
+    $env:ANDROID_HOME
+} else {
+    Join-Path $env:LOCALAPPDATA "Android\Sdk"
+}
 $buildTools33 = "$sdkPath\build-tools\33.0.1"
 $buildTools35 = "$sdkPath\build-tools\35.0.0"
 $androidJar = "$sdkPath\platforms\android-33\android.jar"
-$baseDir = ".\android_build"
+$baseDir = Join-Path $PSScriptRoot "android_build"
 $outputDir = "$baseDir\bin"
-$finalApk = ".\WakeX.apk"
-$staticApk = ".\static\wakex.apk"
+$finalApk = Join-Path $PSScriptRoot "WakeX.apk"
+$staticApk = Join-Path $PSScriptRoot "static\wakex.apk"
 
 Write-Host ">>> [1/6] Cleaning build directory..."
 if (Test-Path $outputDir) { Remove-Item $outputDir -Recurse -Force }

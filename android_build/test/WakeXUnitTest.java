@@ -153,7 +153,7 @@ public class WakeXUnitTest {
         }
 
         // Verification 3: Next 96 bytes must be 16 iterations of target MAC
-        byte[] expectedMac = new byte[] { (byte)0x08, (byte)0xBF, (byte)0xB8, (byte)0xDA, (byte)0xB2, (byte)0x21 };
+        byte[] expectedMac = new byte[] { (byte)0x00, (byte)0x11, (byte)0x22, (byte)0x33, (byte)0x44, (byte)0x55 };
         for (int iter = 0; iter < 16; iter++) {
             int offset = 6 + (iter * 6);
             for (int b = 0; b < 6; b++) {
@@ -164,7 +164,7 @@ public class WakeXUnitTest {
     }
 
     public static void testMacSanitization() {
-        byte[] fromColon = buildMagicPacket("08:bf:b8:da:b2:21");
+        byte[] fromColon = buildMagicPacket("00:11:22:33:44:55");
         byte[] fromHyphen = buildMagicPacket("00-11-22-33-44-55");
         byte[] fromDots = buildMagicPacket("0011.2233.4455");
         byte[] fromPlain = buildMagicPacket("001122334455");
