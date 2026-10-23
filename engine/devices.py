@@ -259,7 +259,7 @@ def dispatch_power_command(target_device_id: str, action: str, delay_seconds: in
     # SAFETY RULE: The Host machine MUST NEVER execute local power commands!
     ip = target.get("ip")
     port = target.get("port", 8001)
-    token = target.get("auth_token", "")
+    token = target.get("auth_token") or target.get("token", "")
 
     if not ip or not any(c.isdigit() for c in ip):
         return {
