@@ -1,0 +1,13 @@
+#!/bin/sh
+# WakeX Pre-Commit Hook: Guard against committed secrets and credentials
+
+if command -v gitleaks >/dev/null 2>&1; then
+    gitleaks protect --staged --verbose
+    exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+        echo "❌ [SECURITY ERROR] Gitleaks detected sensitive credentials in your staged changes!"
+        echo "Commit aborted. Please remove sensitive keys, tokens, or personal identifiers before committing."
+        exit 1
+    fi
+fi
+exit 0

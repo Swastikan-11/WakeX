@@ -96,3 +96,20 @@ Wake-on-LAN sends an industry-standard 102-byte Magic Packet:
 - Broadcasted via UDP strictly to ports 9 and 7 across subnet broadcast (`192.168.1.255` / `255.255.255.255`). UDP port 0 was removed.
 
 Physical hardware testing records are maintained in [docs/HARDWARE_CHECKLIST.md](docs/HARDWARE_CHECKLIST.md).
+
+---
+
+## 6. Reporting a Vulnerability
+
+If you discover a security vulnerability in WakeX, please report it responsibly:
+- **Preferred Method:** Open a [Private Security Advisory on GitHub](https://github.com/Swastikan-11/WakeX/security/advisories/new).
+- **Alternative:** File an issue marked with the `security` label on the [WakeX GitHub Issues tracker](https://github.com/Swastikan-11/WakeX/issues).
+- Please do not submit sensitive exploit details or reproduction scripts through public discussion forums until an advisory is reviewed and patched.
+
+---
+
+## 7. Security Boundaries & Operational Limits
+
+1. **LAN-Only Scope:** WakeX is designed for trusted local-area networks (home/office). **Do NOT expose port 8000 directly to the public internet** via port-forwarding without a secure tunnel (e.g. WireGuard, Tailscale) or a reverse proxy.
+2. **Plain HTTP vs. TLS:** WakeX uses application-layer HMAC-SHA256 signing and ephemeral X25519 PAKE for authentication and anti-replay protection. For end-to-end transport confidentiality against eavesdroppers on untrusted local Wi-Fi, place WakeX behind a reverse proxy (e.g. Caddy, Nginx) with HTTPS enabled.
+3. **Upgrade Re-Pairing:** Security protocol updates (such as the v2.4.0 X25519 PAKE upgrade) intentionally invalidate previous pairing state to enforce modern cryptography. Existing devices must re-pair via the tray menu PIN after major upgrades.

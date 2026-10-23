@@ -102,6 +102,17 @@ WakeX is a software-only, local-first remote power management and workspace orch
 
 ---
 
+## 🔒 Security Architecture & Operational Limits
+
+WakeX follows a **Zero-Trust Local-First Architecture**:
+- **PAKE Handshake:** Pairing uses ephemeral X25519 Diffie-Hellman key exchange authenticated with a single-use 6-digit PIN. The PIN is limited to 5 attempts globally across all IPs before automatic revocation.
+- **HMAC Request Signing:** Destructive actions (Shutdown, Restart, Sleep, Hibernate, Lock, Unlock) require signed requests (`METHOD:PATH:TIMESTAMP:NONCE:BODY_SHA256`) using 256-bit client secrets.
+- **Replay Protection:** 60-second sliding timestamp window and rejection of requests predating hub startup.
+- **LAN Scope:** WakeX is designed for local home/office networks. Do NOT port-forward port 8000 to the public internet without a VPN or HTTPS reverse proxy.
+- **Upgrade Notice:** Security protocol upgrades require mobile devices to re-pair via the tray menu PIN. Older APKs signed with test keys must be uninstalled prior to installing release builds.
+
+---
+
 ## 🔧 Troubleshooting Guide
 
 | Issue | Cause | Solution |
