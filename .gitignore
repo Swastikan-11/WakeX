@@ -14,12 +14,14 @@ build/
 dist/
 *.manifest
 *.spec.bak
+*.exe
 
 # Android build intermediate & local artifacts
 android_build/bin/
 android_build/obj/
 android_build/test_classes/
 *.dex
+*.apk
 WakeX.apk.idsig
 local.properties
 

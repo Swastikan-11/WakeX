@@ -237,6 +237,12 @@ async def revoke_paired_client(client_id: str, _: dict = Depends(security.verify
         raise HTTPException(status_code=404, detail="Client not found.")
     return {"status": "success", "message": f"Client '{client_id}' access revoked."}
 
+@app.post("/api/auth/reset")
+async def reset_auth_endpoint(_: dict = Depends(security.verify_authenticated_request)):
+    """Resets all paired clients and security session caches."""
+    security.reset_all_auth_state()
+    return {"status": "reset", "message": "All paired devices, active sessions, and security caches have been reset."}
+
 
 # --- Telemetry, Screen & Capabilities Endpoints ---
 

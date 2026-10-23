@@ -9,6 +9,7 @@ import socket
 import webbrowser
 import threading
 import logging
+from logging.handlers import RotatingFileHandler
 from PIL import Image
 
 # Ensure working directory is the Hub root
@@ -18,18 +19,45 @@ else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 os.chdir(BASE_DIR)
 
-logging.basicConfig(
-    filename=os.path.join(BASE_DIR, "wakex_hub.log"),
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s"
+# Local rotating logs with size limit (max 2MB, 2 backups, zero secrets)
+log_handler = RotatingFileHandler(
+    os.path.join(BASE_DIR, "wakex_hub.log"),
+    maxBytes=2 * 1024 * 1024,
+    backupCount=2,
+    encoding="utf-8"
 )
+log_formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+log_handler.setFormatter(log_formatter)
+
 logger = logging.getLogger("WakeX.HubLauncher")
+logger.setLevel(logging.INFO)
+logger.addHandler(log_handler)
 
 PORT = 8000
+_mutex_handle = None
+
+
+def acquire_single_instance_mutex():
+    """Win32 Named Mutex guard: prevents duplicate background tray and server instances."""
+    global _mutex_handle
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            kernel32 = ctypes.windll.kernel32
+            mutex = kernel32.CreateMutexW(None, False, "WakeX_Hub_SingleInstance_Mutex")
+            if kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+                logger.info("Another instance of WakeX Hub is already running. Focusing dashboard and exiting.")
+                webbrowser.open(f"http://localhost:{PORT}")
+                sys.exit(0)
+            _mutex_handle = mutex
+        except Exception as e:
+            logger.warning(f"Single-instance mutex check error: {e}")
+
 
 def is_port_in_use(port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         return s.connect_ex(("127.0.0.1", port)) == 0
+
 
 def start_server_thread():
     if is_port_in_use(PORT):
@@ -46,6 +74,7 @@ def start_server_thread():
     except Exception as e:
         logger.critical(f"Server startup exception: {e}")
 
+
 def get_tray_icon():
     icon_path = os.path.join(BASE_DIR, "static", "icon.png")
     if os.path.exists(icon_path):
@@ -53,15 +82,18 @@ def get_tray_icon():
             return Image.open(icon_path)
         except Exception:
             pass
-    # Fallback generated icon
+    # High-contrast Neon Red / Stealth Black fallback icon
     from PIL import ImageDraw
-    img = Image.new('RGB', (64, 64), color=(11, 15, 25))
+    img = Image.new('RGB', (64, 64), color=(5, 5, 8))
     d = ImageDraw.Draw(img)
-    d.ellipse([8, 8, 56, 56], outline=(245, 158, 11), width=4)
+    d.ellipse([8, 8, 56, 56], outline=(255, 42, 68), width=4)
+    d.line([32, 16, 32, 34], fill=(255, 42, 68), width=4)
     return img
+
 
 def open_dashboard(icon=None, item=None):
     webbrowser.open(f"http://localhost:{PORT}")
+
 
 def get_local_ip():
     try:
@@ -73,15 +105,57 @@ def get_local_ip():
     except Exception:
         return "127.0.0.1"
 
+
 def open_mobile_url(icon=None, item=None):
     ip = get_local_ip()
     webbrowser.open(f"http://{ip}:{PORT}")
+
+
+def is_start_on_boot_enabled() -> bool:
+    """Checks whether WakeX is registered in HKCU Run registry."""
+    if sys.platform != "win32":
+        return False
+    try:
+        import winreg
+        run_key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, run_key, 0, winreg.KEY_READ) as key:
+            winreg.QueryValueEx(key, "WakeX")
+            return True
+    except FileNotFoundError:
+        return False
+    except Exception:
+        return False
+
+
+def toggle_start_on_boot(icon=None, item=None):
+    """Toggles HKCU Run registry autostart on Windows."""
+    if sys.platform != "win32":
+        return
+    enabled = is_start_on_boot_enabled()
+    try:
+        import winreg
+        run_key = r"Software\Microsoft\Windows\CurrentVersion\Run"
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, run_key, 0, winreg.KEY_SET_VALUE) as key:
+            if enabled:
+                try:
+                    winreg.DeleteValue(key, "WakeX")
+                    logger.info("Start on Windows Boot disabled.")
+                except FileNotFoundError:
+                    pass
+            else:
+                exe_target = sys.executable if getattr(sys, "frozen", False) else os.path.join(BASE_DIR, "run_hub.bat")
+                winreg.SetValueEx(key, "WakeX", 0, winreg.REG_SZ, f'"{exe_target}"')
+                logger.info("Start on Windows Boot enabled.")
+    except Exception as e:
+        logger.error(f"Error toggling Start on Windows Boot: {e}")
+
 
 def show_pairing_pin(icon=None, item=None):
     from engine import security
     code = security.generate_pairing_code()
     local_ip = get_local_ip()
-    logger.info(f"Generated mobile pairing PIN from tray menu: {code}")
+    # Log event without logging the plain secret/PIN
+    logger.info("Generated mobile pairing PIN from tray menu.")
 
     # Also open the dashboard with the code in view
     webbrowser.open(f"http://localhost:{PORT}/#pair-code={code}")
@@ -100,12 +174,16 @@ def show_pairing_pin(icon=None, item=None):
     except Exception as e:
         logger.warning(f"MessageBox error: {e}")
 
+
 def on_exit(icon, item):
     logger.info("Exiting WakeX Hub from system tray...")
     icon.stop()
     os._exit(0)
 
+
 def main():
+    acquire_single_instance_mutex()
+
     logger.info("==========================================")
     logger.info("      WakeX Hub Application Starting      ")
     logger.info("==========================================")
@@ -132,6 +210,7 @@ def main():
             pystray.MenuItem("⚡ Open WakeX Dashboard", open_dashboard, default=True),
             pystray.MenuItem("🔑 Pair Mobile (Show One-Time PIN)", show_pairing_pin),
             pystray.MenuItem(f"📱 Mobile URL: http://{local_ip}:{PORT}", open_mobile_url),
+            pystray.MenuItem("🚀 Start on Windows Boot", toggle_start_on_boot, checked=lambda item: is_start_on_boot_enabled()),
             pystray.MenuItem(f"🟢 Status: 24/7 Active (Port {PORT})", None, enabled=False),
             pystray.Menu.SEPARATOR,
             pystray.MenuItem("❌ Exit WakeX Hub", on_exit)
@@ -144,6 +223,7 @@ def main():
         # Headless supervisor loop
         while True:
             time.sleep(5)
+
 
 if __name__ == "__main__":
     main()

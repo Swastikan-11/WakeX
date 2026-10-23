@@ -298,6 +298,16 @@ def unpair_client(client_id: str) -> bool:
     return False
 
 
+def reset_all_auth_state():
+    """Resets all paired clients, active pairing codes, and replay nonces."""
+    save_paired_clients({})
+    ACTIVE_PAIRING_CODES.clear()
+    PENDING_PAIRING_SESSIONS.clear()
+    SEEN_NONCES.clear()
+    FAILED_ATTEMPTS.clear()
+    audit_logger.warning("AUTH_RESET: All paired clients, pairing sessions, and security caches reset.")
+
+
 # --- Rate Limiting & Lockout ---
 
 def check_rate_limit(client_ip: str):
@@ -380,10 +390,6 @@ async def verify_authenticated_request(
 
     # 2. Remote / LAN request: check paired clients
     paired_clients = get_paired_clients()
-
-    # If no clients have EVER been paired, allow initial onboarding/pairing
-    if not paired_clients and request.url.path.startswith("/api/auth/"):
-        return {"authenticated": True, "type": "onboarding", "client_id": "onboarding"}
 
     if not x_wakex_client_id or not x_wakex_timestamp or not x_wakex_nonce or not x_wakex_signature:
         record_auth_failure(client_ip)

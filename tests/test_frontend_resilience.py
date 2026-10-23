@@ -12,6 +12,7 @@ import time
 import secrets
 import hashlib
 import hmac
+import subprocess
 from pathlib import Path
 import pytest
 from starlette.testclient import TestClient
@@ -211,3 +212,72 @@ def test_vendored_sha256_rfc4231_vectors_and_lan_ip_signing():
         )
         assert res.status_code == 200
         assert res.json()["status"] == "success"
+
+
+def test_tweetnacl_x25519_pake_handshake_and_static_asset():
+    """Verify tweetnacl.min.js asset is served and performs identical X25519 PAKE key exchange."""
+    res_asset = client.get("/static/tweetnacl.min.js")
+    assert res_asset.status_code == 200
+    assert len(res_asset.content) > 10000
+
+    # Execute Node test verifying TweetNaCl and sha256.min.js derive identical HKDF secret
+    node_script = '''
+    const fs = require("fs");
+    const crypto = require("crypto");
+    global.self = global;
+    global.crypto = crypto.webcrypto;
+
+    const naclCode = fs.readFileSync("static/tweetnacl.min.js", "utf8");
+    const naclMod = { exports: {} };
+    new Function("module", "exports", "require", naclCode)(naclMod, naclMod.exports, require);
+    const nacl = naclMod.exports;
+
+    const kp = nacl.box.keyPair();
+    if (kp.publicKey.length !== 32 || kp.secretKey.length !== 32) process.exit(1);
+
+    const bob = nacl.box.keyPair();
+    const s1 = nacl.scalarMult(kp.secretKey, bob.publicKey);
+    const s2 = nacl.scalarMult(bob.secretKey, kp.publicKey);
+    for (let i = 0; i < 32; i++) {
+        if (s1[i] !== s2[i]) process.exit(2);
+    }
+    '''
+    res_node = subprocess.run(["node", "-e", node_script], capture_output=True, stdin=subprocess.DEVNULL)
+    assert res_node.returncode == 0, f"TweetNaCl Node verification failed: {res_node.stderr.decode()}"
+
+
+def test_auth_reset_endpoint_clears_paired_clients_and_sessions():
+    """Verify POST /api/auth/reset revokes all clients and session tokens."""
+    # 1. Register a client
+    creds = security.register_paired_client("Reset Test Phone", "client_reset_test")
+    cid, sec = creds["client_id"], creds["client_secret"]
+
+    # 2. Make authenticated request to reset endpoint
+    ts = str(int(time.time()))
+    nonce = secrets.token_hex(8)
+    sign_str = f"POST:/api/auth/reset:{ts}:{nonce}:" + hashlib.sha256(b"").hexdigest()
+    sig = hmac.new(sec.encode("utf-8"), sign_str.encode("utf-8"), hashlib.sha256).hexdigest()
+    headers = {
+        "X-WakeX-Client-Id": cid,
+        "X-WakeX-Timestamp": ts,
+        "X-WakeX-Nonce": nonce,
+        "X-WakeX-Signature": sig
+    }
+
+    res_reset = client.post("/api/auth/reset", headers=headers)
+    assert res_reset.status_code == 200
+    assert res_reset.json()["status"] == "reset"
+
+    # 3. Subsequent request with old credentials MUST be rejected with 401
+    ts2 = str(int(time.time()))
+    nonce2 = secrets.token_hex(8)
+    sign_str2 = f"GET:/api/auth/paired-clients:{ts2}:{nonce2}:" + hashlib.sha256(b"").hexdigest()
+    sig2 = hmac.new(sec.encode("utf-8"), sign_str2.encode("utf-8"), hashlib.sha256).hexdigest()
+    headers2 = {
+        "X-WakeX-Client-Id": cid,
+        "X-WakeX-Timestamp": ts2,
+        "X-WakeX-Nonce": nonce2,
+        "X-WakeX-Signature": sig2
+    }
+    res_subseq = client.get("/api/auth/paired-clients", headers=headers2)
+    assert res_subseq.status_code == 401

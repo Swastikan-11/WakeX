@@ -955,4 +955,31 @@ public class MainActivity extends Activity {
             }
         }).start();
     }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (webView != null) {
+            webView.onPause();
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (webView != null) {
+            webView.onResume();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (watchdogHandler != null && timeoutRunnable != null) {
+            watchdogHandler.removeCallbacks(timeoutRunnable);
+        }
+        if (webView != null) {
+            webView.destroy();
+        }
+        super.onDestroy();
+    }
 }

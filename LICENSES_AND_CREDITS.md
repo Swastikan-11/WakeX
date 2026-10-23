@@ -15,9 +15,11 @@ WakeX is developed as an open-source, local-first PC orchestration utility. It r
 ### Android Companion Client
 * **Android Open Source Project (AOSP)** — Apache License 2.0. Used via standard Android SDK build tools (`aapt`, `d8`, `apksigner`, `android.jar`).
 
-### Frontend Cryptographic Fallback
+### Frontend Cryptographic Fallback & Handshake
 * **js-sha256** — Licensed under the MIT License. Copyright (c) 2014-2024 Chen, Yi-Cyuan.
   Used in `static/sha256.min.js` as an RFC 4231-compliant HMAC-SHA256 and SHA-256 fallback engine for plain HTTP LAN environments without Web Crypto API secure context.
+* **TweetNaCl.js** — Public Domain / CC0-1.0. Ported by Dmitry Chestnykh from TweetNaCl by Daniel J. Bernstein, Bernard van Gastel, Wesley Janssen, Tanja Lange, Peter Schwabe, Sjaak Smetsers.
+  Used in `static/tweetnacl.min.js` for ephemeral X25519 key exchange in plain HTTP LAN environments.
 
 ### Inspiration & Architectural Paradigms
 Concepts and network patterns in WakeX were informed by open-source remote control and device integration projects:

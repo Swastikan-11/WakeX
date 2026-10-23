@@ -274,6 +274,7 @@
           <div style="display: flex; gap: 8px; flex-wrap: wrap;">
             <button class="btn-primary" style="background: var(--accent-cyan); color: #080C14; font-weight: 600;" onclick="openPairingCodeModal()">🔑 Phone Pairing Code</button>
             <button class="btn-primary" onclick="openPairDeviceModal()">➕ Pair Secondary PC</button>
+            <button class="btn-primary" style="background: rgba(255,42,68,0.12); border: 1px solid var(--accent-red); color: var(--accent-red);" onclick="resetEverythingSecurity()">⚠️ Reset Security</button>
           </div>
         </div>
 
@@ -709,8 +710,9 @@
         <input type="text" id="client-pair-code" class="form-input" style="font-size: 1.8rem; letter-spacing: 4px; text-align: center; font-weight: 700;" placeholder="000000" maxlength="6">
       </div>
 
-      <div class="modal-actions" style="justify-content: center; gap: 10px;">
+      <div class="modal-actions" style="flex-direction: column; gap: 8px;">
         <button class="modal-btn confirm" style="background: var(--accent-green); width: 100%;" onclick="submitClientPairing()">🔒 Pair Device</button>
+        <button class="modal-btn cancel" style="width: 100%; border: 1px solid var(--border-color);" onclick="closeClientPairModal()">Cancel</button>
       </div>
     </div>
   </div>
@@ -781,6 +783,7 @@
   </div>
 
   <script src="/static/sha256.min.js"></script>
+  <script src="/static/tweetnacl.min.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

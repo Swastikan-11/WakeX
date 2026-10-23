@@ -222,8 +222,16 @@ async function autoPairFirstClient() {
   }
 }
 
-function showClientPairModal() {
+function showClientPairModal(reason) {
   const modal = document.getElementById("client-pair-modal");
+  const desc = document.querySelector("#client-pair-modal .modal-desc");
+  if (desc) {
+    if (reason === "re-pair" || localStorage.getItem("wakex_client_id")) {
+      desc.textContent = "⚠️ Hub upgraded or pairing session expired. Enter the fresh 6-digit PIN shown on your PC to re-pair:";
+    } else {
+      desc.textContent = "Enter the 6-digit pairing code shown on your PC Hub:";
+    }
+  }
   if (modal) modal.classList.add("open");
 }
 
@@ -232,38 +240,150 @@ function closeClientPairModal() {
   if (modal) modal.classList.remove("open");
 }
 
+function uint8ToHex(arr) {
+  return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function hexToUint8(hexStr) {
+  const bytes = new Uint8Array(hexStr.length / 2);
+  for (let i = 0; i < hexStr.length; i += 2) {
+    bytes[i / 2] = parseInt(hexStr.substr(i, 2), 16);
+  }
+  return bytes;
+}
+
+function generateRandomHex(byteCount) {
+  const arr = new Uint8Array(byteCount);
+  if (window.crypto && window.crypto.getRandomValues) {
+    window.crypto.getRandomValues(arr);
+  } else {
+    for (let i = 0; i < byteCount; i++) arr[i] = Math.floor(Math.random() * 256);
+  }
+  return uint8ToHex(arr);
+}
+
 async function submitClientPairing() {
   const input = document.getElementById("client-pair-code");
   const code = input ? input.value.trim() : "";
-  if (!code || code.length !== 6) {
-    alert("Please enter a valid 6-digit pairing code.");
+  if (!code || code.length !== 6 || !/^\d{6}$/.test(code)) {
+    alert("Please enter a valid 6-digit numeric pairing PIN shown on your PC Hub.");
     return;
   }
 
+  if (typeof nacl === "undefined" || !nacl.box || !nacl.box.keyPair) {
+    alert("Cryptographic module (TweetNaCl) is loading. Please refresh and try again.");
+    return;
+  }
+
+  let clientId = localStorage.getItem("wakex_client_id");
+  if (!clientId) {
+    clientId = "client_" + generateRandomHex(8);
+  }
+
+  const clientName = navigator.userAgent.includes("Android") ? "Android Companion" : "WakeX Web Client";
+
   try {
-    const res = await fetch("/api/auth/pair", {
+    // Step 1: Ephemeral X25519 Key Generation
+    const clientKeyPair = nacl.box.keyPair();
+    const clientNonceHex = generateRandomHex(16);
+    const clientPubHex = uint8ToHex(clientKeyPair.publicKey);
+
+    // Step 2: Key Exchange Endpoint
+    const resEx = await fetch("/api/auth/pair/exchange", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        pairing_code: code,
-        client_name: navigator.userAgent.includes("Android") ? "Android Phone" : "Web Client"
+        client_id: clientId,
+        client_name: clientName,
+        client_public_key: clientPubHex,
+        client_nonce: clientNonceHex
       })
     });
-    const data = await res.json();
-    if (res.ok) {
-      localStorage.setItem("wakex_client_id", data.client_id);
-      localStorage.setItem("wakex_client_secret", data.client_secret);
+
+    if (!resEx.ok) {
+      const errData = await resEx.json().catch(() => ({}));
+      throw new Error(errData.detail || "Pairing exchange rejected by Hub.");
+    }
+
+    const exData = await resEx.json();
+    const sessionId = exData.session_id;
+    const hubPubHex = exData.hub_public_key;
+    const hubNonceHex = exData.hub_nonce;
+
+    // Step 3: Compute ECDH Shared Secret
+    const hubPubBytes = hexToUint8(hubPubHex);
+    const sharedSecretBytes = nacl.scalarMult(clientKeyPair.secretKey, hubPubBytes);
+
+    // Step 4: Derive Long-Term Client Secret via HKDF-SHA256 (RFC 5869)
+    const saltBytes = hexToUint8(clientNonceHex + hubNonceHex);
+    const prkHex = sha256.hmac.hex(saltBytes, sharedSecretBytes);
+    const infoBytes = new TextEncoder().encode("wakex-client-secret-v1\x01");
+    const derivedSecretHex = sha256.hmac.hex(hexToUint8(prkHex), infoBytes);
+
+    // Step 5: Compute Handshake Transcript & Mutual PIN Proof
+    const transcript = `${clientId}:${clientPubHex}:${clientNonceHex}:${hubPubHex}:${hubNonceHex}`;
+    const clientProofHex = sha256.hmac.hex(code, `CLIENT:${transcript}`);
+
+    // Step 6: Authenticate Handshake with PIN
+    const resAuth = await fetch("/api/auth/pair/authenticate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: sessionId,
+        pairing_code: code,
+        client_proof: clientProofHex
+      })
+    });
+
+    if (resAuth.ok) {
+      localStorage.setItem("wakex_client_id", clientId);
+      localStorage.setItem("wakex_client_secret", derivedSecretHex);
       if (window.AndroidWakeX && typeof window.AndroidWakeX.saveCredentials === "function") {
-        window.AndroidWakeX.saveCredentials(data.client_id, data.client_secret);
+        window.AndroidWakeX.saveCredentials(clientId, derivedSecretHex);
       }
       closeClientPairModal();
-      alert("✅ Phone paired successfully with WakeX Hub!");
+      alert("✅ Phone paired successfully with WakeX Hub!\n256-bit cryptographic local keys established.");
       startAppServices();
     } else {
-      alert(`❌ Pairing Failed: ${data.detail || data.message}`);
+      const authErr = await resAuth.json().catch(() => ({}));
+      let msg = authErr.detail || "Pairing authentication failed.";
+      if (resAuth.status === 429) {
+        msg = "⚠️ PIN revoked or temporary lockout: Too many incorrect PIN attempts (limit 5). Please generate a fresh PIN from your PC system tray.";
+      } else if (resAuth.status === 401) {
+        msg = "❌ Incorrect or expired PIN. Please generate a fresh PIN on your PC Hub and enter it within 5 minutes.";
+      }
+      alert(msg);
     }
   } catch (e) {
-    alert(`Pairing error: ${e.message}`);
+    alert(`Pairing error: ${e.message}\n\nPlain-language fix: Ensure your device is on the same Wi-Fi network as the PC.`);
+  }
+}
+
+async function resetEverythingSecurity() {
+  const confirmed = confirm(
+    "⚠️ FACTORY RESET SECURITY\n\n" +
+    "This will permanently revoke all paired mobile devices, clear replay security nonces, and revoke active sessions on this PC Hub.\n\n" +
+    "You will need to re-pair any phone with a new 6-digit PIN.\n\n" +
+    "Are you sure you want to proceed?"
+  );
+  if (!confirmed) return;
+
+  try {
+    const res = await apiFetch("/api/auth/reset", { method: "POST" });
+    if (res.ok) {
+      localStorage.removeItem("wakex_client_id");
+      localStorage.removeItem("wakex_client_secret");
+      if (window.AndroidWakeX && typeof window.AndroidWakeX.saveCredentials === "function") {
+        window.AndroidWakeX.saveCredentials("", "");
+      }
+      alert("✅ Security state reset successfully. All paired devices revoked.");
+      location.reload();
+    } else {
+      const err = await res.json().catch(() => ({}));
+      alert("Reset error: " + (err.detail || "Could not complete reset"));
+    }
+  } catch (e) {
+    alert("Reset failed: " + e.message);
   }
 }
 
@@ -504,9 +624,23 @@ function initWebSocket() {
     };
 
     socket.onclose = () => {
-      setTimeout(connect, 3000);
+      const delay = document.hidden ? 20000 : 3000;
+      setTimeout(connect, delay);
     };
   }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      console.log("[WakeX] App backgrounded: low-power mode active.");
+    } else {
+      console.log("[WakeX] App foregrounded: refreshing live state.");
+      loadDevices();
+      loadReadinessReport();
+      if (!socket || socket.readyState === WebSocket.CLOSED) {
+        connect();
+      }
+    }
+  });
 
   connect();
 }
