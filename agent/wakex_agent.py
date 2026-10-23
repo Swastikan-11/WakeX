@@ -24,6 +24,7 @@ logger = logging.getLogger("WakeX.Agent")
 
 AGENT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(AGENT_DIR, "agent_config.json")
+VERSION = "3.0.0"
 CURRENT_OS = platform.system().lower()
 
 # Security state
@@ -432,6 +433,7 @@ def run_agent(host: str = "", port: int = 8001):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="WakeX Multi-Platform Remote Agent")
+    parser.add_argument("--version", action="version", version=f"WakeX Agent v{VERSION}")
     parser.add_argument("--host", type=str, default="", help="Host/IP interface to bind on (default: auto-detected LAN IP)")
     parser.add_argument("--port", type=int, default=8001, help="Port to listen on (default: 8001)")
     parser.add_argument("--pair", action="store_true", help="Print pairing details and token")
