@@ -1,9 +1,9 @@
 # WakeX Security & Threat Model
 
-**Version:** 2.2.0  
-**Security Status:** Production Hardened (Local Cryptographic Verification)
+**Version:** 2.4.0  
+**Security Architecture:** Local-First Zero-Trust Architecture (Cryptographic Verification)
 
-WakeX controls high-privilege system power operations (**Shutdown, Restart, Sleep, Hibernate, Lock, Unlock Display, and Wake-on-LAN**). Consequently, security and safety isolation are paramount.
+WakeX controls high-privilege system power operations (**Shutdown, Restart, Sleep, Hibernate, Lock, Unlock Display, and Wake-on-LAN**). Consequently, security, target isolation, and defensive cryptography are strictly enforced.
 
 ---
 
@@ -11,56 +11,88 @@ WakeX controls high-privilege system power operations (**Shutdown, Restart, Slee
 
 | Threat Vector | Mitigation Strategy | Implementation Status |
 |---|---|---|
-| **Unauthorized LAN Access / Hacker on Wi-Fi** | All power operations, schedules, and pairing actions are guarded by HMAC-SHA256 request verification using 256-bit client secrets. Unauthenticated calls are rejected with `HTTP 401`. | **ENFORCED** |
-| **Packet Replay Attacks** | Every request requires Unix timestamp (`X-WakeX-Timestamp`) within 60s of server time and a unique random nonce (`X-WakeX-Nonce`). Reused nonces or skewed timestamps trigger `HTTP 403 Forbidden`. | **ENFORCED** |
-| **Credential Sniffing over Wi-Fi** | Windows credentials and passwords are **never** transmitted over the network. Keystroke simulation (`SendKeys`) was purged. Screen unlock only awakens monitors and dismisses the lock screen wallpaper curtain. | **ENFORCED** |
-| **Brute-Force Pairing / Auth Attacks** | IP-level rate-limiting tracks failures. >5 failed attempts within 3 minutes results in an automatic 5-minute lockout (`HTTP 429 Too Many Requests`). | **ENFORCED** |
-| **Default Credential Exploits** | Prototype `1234` PIN completely removed. Client pairing generates 256-bit entropy random keys. | **ENFORCED** |
+| **Wi-Fi Eavesdropping / Passive Sniffing** | Pairing uses ephemeral X25519 key exchange with HKDF-SHA256 derivation. Long-term client secret is never transmitted across the network. Handshake transcript mutual authentication is keyed with the single-use 6-digit PIN. | **ENFORCED** |
+| **PIN Offline Brute-Force Attacks** | Secret is derived purely from X25519 ECDH, never from the PIN. Passive eavesdroppers learn nothing from network traffic. Active attackers get exactly one online guess per attempt. | **ENFORCED** |
+| **PIN Online Guessing & Distributed Brute-Force** | 6-digit PIN is single-use, expires in 5 minutes, and is limited to 5 attempts *globally across all source IPs* per PIN. Exceeding 5 attempts immediately revokes the PIN. | **ENFORCED** |
+| **Unauthorized LAN Access / Hacker on Wi-Fi** | All power operations, schedules, and agent endpoints require HMAC-SHA256 request verification using 256-bit client secrets. Unauthenticated calls are rejected with `HTTP 401`. | **ENFORCED** |
+| **Packet Replay Attacks** | Every request requires Unix timestamp (`X-WakeX-Timestamp`) within 60s of server time and a unique random nonce (`X-WakeX-Nonce`). Reused nonces or skewed timestamps trigger `HTTP 403 Forbidden`. Requests dated prior to hub start time (`req_ts < PROCESS_START_TIME - 5.0`) are unconditionally rejected. | **ENFORCED** |
+| **Plain HTTP Crypto Vulnerability** | Android WebView prioritizes native `AndroidWakeX.signRequest()` Keystore bridge. Web dashboards on plain HTTP (`http://<LAN-IP>:8000`) fall back to vendored `js-sha256` verified against RFC 4231 vectors. | **ENFORCED** |
+| **Remote Linux Agent Compromise (Port 8001)** | Root daemon binds to LAN interface (`--host`), rejects unsigned tokens, enforces HMAC-SHA256 signature verification over every request, and uses discrete argument lists (no `shell=True`). | **ENFORCED** |
+| **Credential Sniffing over Wi-Fi** | Windows/Linux credentials and passwords are **never** transmitted over the network. Keystroke simulation (`SendKeys`) was purged. Screen unlock only awakens monitors and dismisses the lock screen wallpaper curtain. | **ENFORCED** |
 | **Cross-Device Accidental Shutdown (Host vs. Target)** | Target device ID verification in `devices.py`. Remote commands are dispatched exclusively via HTTP to the remote agent. Local Host OS commands are isolated and never invoked for remote targets. | **ENFORCED** |
-| **Remote Agent Impersonation** | Remote agents require dedicated cryptographic tokens (`X-WakeX-Device-Token`) negotiated during pairing. | **ENFORCED** |
-| **Command Injection via Power APIs** | Actions are strictly whitelisted against an allowed enum (`shutdown`, `restart`, `sleep`, `hibernate`, `lock`, `unlock`, `abort`). No raw shell input is accepted. | **ENFORCED** |
+| **Command Injection via Power APIs** | Actions are strictly whitelisted against an allowed enum (`shutdown`, `restart`, `sleep`, `hibernate`, `lock`, `unlock`, `abort`). All subprocess calls execute with discrete argument lists without shell interpretation. | **ENFORCED** |
 | **Token Theft via Cloud Backups** | Android `allowBackup="false"` prevents APK settings and tokens from being extracted into unencrypted Google cloud backups. | **ENFORCED** |
 | **Duplicate OS Execution (Double Taps)** | Server-side idempotency guard caches command results for 30s by client and nonce, returning cached results on duplicate network packets. | **ENFORCED** |
 
 ---
 
-## 2. Multi-Device Safety Guarantee
+## 2. PAKE-Style Pairing Protocol (X25519 + HKDF + PIN Auth)
 
-### Problem
-In multi-computer environments, a critical safety vulnerability occurs if the Host/Hub defaults to executing power actions locally when targeting a secondary PC (e.g. Device B or C).
+> [!IMPORTANT]
+> **Protocol Update Notice:** WakeX v2.4.0 replaced legacy static pairing with an ephemeral X25519 PAKE-style handshake. **Existing paired devices must re-pair.**
 
-### WakeX Guarantee
-Inside `engine/devices.py::dispatch_power_command`:
-1. The requested `target_device_id` is queried from the local registry.
-2. If `target.get("is_current") == True`:
-   - Command is executed locally on Host Device A.
-3. If `target.get("is_current") == False`:
-   - **Local Host OS APIs (`os_power.execute_*`) are STRICTLY BYPASSED.**
-   - An authenticated HTTP POST request is dispatched to `http://{target.ip}:{target.port}/api/agent/power` with header `X-WakeX-Device-Token: {target.auth_token}`.
-   - If the remote agent is offline, unreachable, or times out, the Hub returns `DEVICE_UNREACHABLE`. **It NEVER falls back to executing on the local Host.**
+```
+Mobile Client (Phone)                                Hub (PC)
+      |                                                 |
+      |             1. User requests 6-digit PIN        |
+      |             Tray displays single-use PIN (5m)   |
+      |                                                 |
+      |  2. POST /api/auth/pair/exchange               |
+      |  Client X25519 Ephemeral Pubkey (Base64)        |
+      | ----------------------------------------------> |
+      |                                                 | Generates Hub X25519 Ephemeral Keypair
+      |                                                 | Computes ECDH Shared Secret
+      |                                                 | Derives Client Secret via HKDF-SHA256
+      |  3. Returns session_id + Hub Pubkey (Base64)   |
+      | <---------------------------------------------- |
+      |                                                 |
+      | Computes ECDH Shared Secret                     |
+      | Derives Client Secret via HKDF-SHA256           |
+      | Computes client_proof =                         |
+      |   HMAC-SHA256(PIN, transcript || "client_auth")|
+      |                                                 |
+      |  4. POST /api/auth/pair/authenticate           |
+      |  session_id + client_id + client_proof          |
+      | ----------------------------------------------> | Verifies client_proof using PIN
+      |                                                 | Checks attempts (< 5 across all IPs)
+      |                                                 | Marks PIN consumed
+      |                                                 | Computes hub_proof =
+      |                                                 |   HMAC-SHA256(PIN, transcript || "hub_auth")
+      |  5. Returns hub_proof + device metadata         |
+      | <---------------------------------------------- |
+      |                                                 |
+      | Verifies hub_proof                              |
+      | Mutual Auth Complete!                           |
+```
+
+- **Passive Eavesdropper Security:** The client secret is derived purely from the Diffie-Hellman secret `X25519(priv_client, pub_hub)`. A Wi-Fi packet capture seeing public keys and proofs cannot compute the shared secret or brute-force the PIN offline.
+- **Active Attacker Defense:** An attacker attempting to authenticate without physical access to the tray PIN receives an immediate attempt counter decrement. After 5 failed attempts from any IP, the PIN is permanently revoked.
 
 ---
 
-## 3. Cryptographic Standards
+## 3. Remote Agent Security (Linux Port 8001)
 
-- **Request Authentication:** HMAC-SHA256 computed over `METHOD:PATH:TIMESTAMP:NONCE:BODY_SHA256`.
-- **Client Secrets:** 32-byte (256-bit) entropy tokens generated via `secrets.token_hex(32)`.
-- **Timing Attacks:** Token and hash comparisons utilize `hmac.compare_digest` to prevent side-channel timing analysis.
-- **Clock Drift Window:** 60 seconds maximum allowed drift.
-- **Audit Logging:** Structured log entries in `wakex_audit.log` recording timestamp, client ID, IP, target device, and execution outcome.
+The standalone root daemon (`agent/wakex_agent.py`):
+1. **Host Binding:** Defaults to `--host <LAN-IP>` rather than exposing all interfaces unconditionally.
+2. **Strict Cryptographic Authentication:** Enforces full HMAC-SHA256 signature verification over `METHOD:PATH:TIMESTAMP:NONCE:BODY_SHA256` matching the Hub. Legacy unsigned token bypass is purged.
+3. **No Shell Execution:** Uses discrete argument lists (`["systemctl", "poweroff"]`, etc.) with `shell=False`.
+4. **Action Whitelist:** Only accepts `shutdown`, `restart`, `sleep`, `hibernate`, `lock`, `unlock`, and `status`.
 
 ---
 
-## 4. Hardware Wake-on-LAN Architecture
+## 4. Signing Key & Keystore Management
+
+- **Compromise Status of Legacy Keystore:** The legacy `android_build/wakex.keystore` (password `[REDACTED]`) has been marked compromised and purged from git tracking.
+- **External Release Keystores:** APK build scripts now store release signing keystores outside the workspace at `~/.wakex/wakex_release.keystore` (or path configured in `$env:WAKEX_KEYSTORE_PATH`).
+- **Reinstallation Requirement:** Android devices with an older build signed with the legacy key must uninstall the existing app before installing new release APK builds due to Android's signature verification policy.
+
+---
+
+## 5. Hardware Wake-on-LAN Architecture
 
 Wake-on-LAN sends an industry-standard 102-byte Magic Packet:
 - 6 bytes of `0xFF`
 - 16 repetitions of the target device's 6-byte IEEE 802 MAC address
-- Broadcasted via UDP to port 9 and port 7 across subnet broadcast (`192.168.1.255` / `255.255.255.255`).
+- Broadcasted via UDP strictly to ports 9 and 7 across subnet broadcast (`192.168.1.255` / `255.255.255.255`). UDP port 0 was removed.
 
-### Hardware Prerequisites & Limitations
-1. **NIC Standby Power:** The motherboard and Network Interface Card must maintain `+5VSB` standby electrical power. If the PC is unplugged from the wall or AC power is severed, WoL cannot function.
-2. **BIOS / UEFI Settings:** `Wake on Magic Packet`, `PCIe PME Event Wake`, or `ErP/EuP` power-saving modes must be configured in BIOS:
-   - Disable **Deep Sleep** or **ErP Ready** (which cuts NIC power in S5).
-   - Enable **Power On By PCI-E Device**.
-3. **Wi-Fi Limitations:** Most laptop Wi-Fi cards power down in S5 (cold shutdown) when on battery. Wake-on-LAN is 100% reliable over Ethernet cables; Wake-on-WLAN (WoWLAN) requires AC adapter connected and Modern Standby (S0ix) or S3 Sleep support.
+Physical hardware testing records are maintained in [docs/HARDWARE_CHECKLIST.md](docs/HARDWARE_CHECKLIST.md).

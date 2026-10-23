@@ -29,7 +29,7 @@ WakeX is a software-only, local-first remote power management and workspace orch
 
 2. **Hardware Wake-on-LAN & Wake-on-Wi-Fi (WoWLAN):**
    - Transmits standard 102-byte Magic Packets (`0xFF * 6 + MAC * 16`).
-   - Multi-adapter support: broadcasts across Ethernet and Wi-Fi MACs over ports 9, 7, and 0 to both global broadcast (`255.255.255.255`) and subnet broadcast (`192.168.x.255`).
+   - Multi-adapter support: broadcasts across Ethernet and Wi-Fi MACs over ports 9 and 7 to both global broadcast (`255.255.255.255`) and subnet broadcast (`192.168.x.255`).
    - Automated self-elevating setup script ([enable_wowlan.bat](enable_wowlan.bat)) to configure AC/DC wake timers, Wi-Fi driver power management, and Windows Firewall port rules.
    - **Test WoL Button:** Instant self-test button in the dashboard broadcasts verification packets and reports target MAC and subnet routing status.
 
@@ -76,10 +76,12 @@ WakeX is a software-only, local-first remote power management and workspace orch
 ### 2. Connect Your Android Phone
 1. Connect your phone to the **same Wi-Fi network** as your PC.
 2. Install [WakeX.apk](WakeX.apk) on your phone.
+   *(Note: If updating from an older test build signed with the legacy key, uninstall the previous version before installing the new release).*
 3. Open the app: it will auto-detect your PC via the UDP beacon and pair seamlessly.
 4. If prompted for a pairing code:
    - Right-click the WakeX tray icon and select **"🔑 Pair Mobile (Show One-Time PIN)"** (or click **"🔑 Phone Pairing Code"** on the web dashboard).
-   - Enter the 6-digit one-time code on your phone to finalize hardware cryptographic pairing.
+   - Enter the 6-digit one-time code on your phone to finalize ephemeral X25519 PAKE hardware pairing.
+   *(Note: If you paired on a version older than v2.4.0, please re-pair your device to complete the X25519 key exchange).*
 
 ---
 
@@ -120,3 +122,4 @@ WakeX is a software-only, local-first remote power management and workspace orch
 * [CHANGELOG.md](CHANGELOG.md): Detailed version history and release notes.
 * [tests/test_wakex.py](tests/test_wakex.py): Automated backend test suite.
 * [tests/test_frontend_resilience.py](tests/test_frontend_resilience.py): Automated frontend resilience test suite.
+* [tests/test_coverage_and_network.py](tests/test_coverage_and_network.py): Automated UDP discovery, IP re-binding, and cross-platform power action test suite.

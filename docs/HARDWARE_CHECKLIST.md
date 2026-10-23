@@ -111,7 +111,35 @@ A comprehensive testing and verification manual covering all **6 core actions** 
 
 ---
 
-## 4. Troubleshooting Checklist
+## 4. Hardware Verification Results Table (Action × OS × Medium)
+
+> [!IMPORTANT]
+> The table below records physical verification on target machines. Automated pytest test suites verify mock dispatches and packet byte structures; physical electrical wake and sleep transitions must be confirmed and filled in here on real hardware.
+
+| Action | Target OS | Network Medium | Initial State | Expected Physical Hardware Behavior | Physical Test Status | Tested Date & Hardware Model |
+| :--- | :--- | :--- | :--- | :--- | :---: | :--- |
+| **Wake (WoL)** | Windows 10/11 | Ethernet | Cold Off (S5) | Motherboard relays on, fans spin, boots to login | `[ ] PENDING` | Real PC test pending |
+| **Wake (WoL)** | Windows 10/11 | Ethernet | Sleep (S3/S0ix) | Instant resume, monitors wake, network links | `[ ] PENDING` | Real PC test pending |
+| **Wake (WoWLAN)** | Windows 10/11 | Wi-Fi (AC plugged) | Modern Standby (S0ix) | Wi-Fi chip wakes CPU, lockscreen displayed | `[ ] PENDING` | Real PC test pending |
+| **Wake (WoL)** | Linux (systemd) | Ethernet | Cold Off (S5) | PC powers on via ethtool `wol g` magic packet | `[ ] PENDING` | Real PC test pending |
+| **Wake (WoL)** | Linux (systemd) | Ethernet | Suspend (S3) | Resumes to display manager | `[ ] PENDING` | Real PC test pending |
+| **Wake (WoWLAN)** | Linux (systemd) | Wi-Fi (AC plugged) | Suspend (S3) | Resumes via iw WoWLAN magic packet | `[ ] PENDING` | Real PC test pending |
+| **Sleep** | Windows 10/11 | Wi-Fi / Ethernet | Active Session | Enters S3/S0ix, power LED breathes, fans stop | `[ ] PENDING` | Real PC test pending |
+| **Sleep** | Linux (systemd) | Wi-Fi / Ethernet | Active Session | `systemctl suspend` triggers low power sleep | `[ ] PENDING` | Real PC test pending |
+| **Hibernate** | Windows 10/11 | Wi-Fi / Ethernet | Active Session | RAM written to hiberfil.sys, 0W cold powerdown | `[ ] PENDING` | Real PC test pending |
+| **Hibernate** | Linux (systemd) | Wi-Fi / Ethernet | Active Session | `systemctl hibernate` dumps RAM to swap & halts | `[ ] PENDING` | Real PC test pending |
+| **Restart** | Windows 10/11 | Wi-Fi / Ethernet | Active Session | Clean shutdown & reboot (`shutdown /r /t 0`) | `[ ] PENDING` | Real PC test pending |
+| **Restart** | Linux (systemd) | Wi-Fi / Ethernet | Active Session | Clean reboot (`systemctl reboot`) | `[ ] PENDING` | Real PC test pending |
+| **Shutdown** | Windows 10/11 | Wi-Fi / Ethernet | Active Session | Clean power off (`shutdown /s /t 0`) | `[ ] PENDING` | Real PC test pending |
+| **Shutdown** | Linux (systemd) | Wi-Fi / Ethernet | Active Session | Clean power off (`systemctl poweroff`) | `[ ] PENDING` | Real PC test pending |
+| **Lock** | Windows 10/11 | Wi-Fi / Ethernet | Active Session | Immediate lock screen via LockWorkStation | `[ ] PENDING` | Real PC test pending |
+| **Lock** | Linux (systemd) | Wi-Fi / Ethernet | Active Session | Immediate lock screen via loginctl lock-session | `[ ] PENDING` | Real PC test pending |
+| **Unlock (Display)** | Windows 10/11 | Wi-Fi / Ethernet | Locked / Monitors Off | DPMS wake + curtain dismissed (no credentials) | `[ ] PENDING` | Real PC test pending |
+| **Unlock (Display)** | Linux (systemd) | Wi-Fi / Ethernet | Locked / Monitors Off | loginctl unlock-session / DPMS wake | `[ ] PENDING` | Real PC test pending |
+
+---
+
+## 5. Troubleshooting Checklist
 
 - [ ] **PC does not wake from cold power-off over Ethernet:**
   - Verify Ethernet cable is plugged directly into a router/switch (not a USB-C hub that loses power when laptop shuts down).

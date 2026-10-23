@@ -26,9 +26,14 @@ WakeX.apk.idsig
 wakex_hub.log
 wakex_audit.log
 
-# Local secrets & device pairings (Security First)
+# Local secrets, keys & device pairings (Security First)
+*.keystore
+*.jks
+release_keystore/
 config/paired_clients.json
 config/paired_clients.json.bak
+config/devices.json
+config/devices.json.bak
 agent/agent_config.json
 agent/agent_config.json.bak
 

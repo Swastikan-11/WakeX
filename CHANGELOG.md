@@ -2,6 +2,34 @@
 
 All notable changes to the WakeX project are documented here.
 
+## [2.4.1] - 2026-10-23
+### Security Hardening, Ephemeral X25519 PAKE Pairing, & Architecture Auditing
+- **Ephemeral X25519 PAKE-Style Pairing Protocol:**
+  - Replaced legacy static pairing with ephemeral X25519 Diffie-Hellman key exchange (`POST /api/auth/pair/exchange` and `POST /api/auth/pair/authenticate`).
+  - Derived long-term 256-bit client secrets purely from ECDH shared secret using HKDF-SHA256 (the secret is never derived from or keyed with the PIN).
+  - Mutual transcript authentication keyed with the single-use 6-digit PIN. Passive eavesdroppers learn nothing; active attackers receive at most 1 online guess per attempt.
+  - Per-PIN 5-attempt brute-force revocation enforced globally across all source IPs. Single-use PIN consumption and 5-minute expiry.
+  - *Migration Note: Existing paired devices must re-pair.*
+- **Linux Agent Hardening (Root Daemon Port 8001):**
+  - Purged legacy unsigned token bypass. Strict HMAC-SHA256 signature verification enforced across all endpoints.
+  - Added `--host` parameter defaulting to the host's LAN IP instead of exposing all network interfaces unconditionally.
+  - Replaced all `subprocess.run(..., shell=True)` and `subprocess.Popen(..., shell=True)` calls across the entire codebase with discrete argument lists (`["systemctl", "poweroff"]`, etc.), eliminating shell injection vectors.
+- **Plain HTTP Web Crypto Resilience:**
+  - Android WebView prioritizes native `window.AndroidWakeX.signRequest()` Keystore bridge.
+  - Browser dashboards on plain HTTP (`http://<LAN-IP>:8000`) fall back to vendored, MIT-licensed `js-sha256` verified against standard RFC 4231 test vectors.
+- **Process Start Time Replay Immunity:**
+  - Hub enforces rejection of any request timestamped prior to process start (`req_ts < PROCESS_START_TIME - 5.0`), preventing replay attacks across restarts without file I/O overhead.
+- **WoL Port Cleanup:**
+  - Removed UDP port 0 from Magic Packet broadcasts across backend and frontend (strictly ports 9 and 7).
+- **Test Suite Expansion:**
+  - Added `tests/test_coverage_and_network.py` verifying UDP discovery responses, Hub IP re-binding on DHCP change, strict WoL ports, and mock executions for all 6 power actions across Windows and Linux.
+  - Expanded `android_build/test/WakeXUnitTest.java` with UDP discovery payload parsing, IP re-bind detection, and connection watchdog state machine tests (now 52 pytest tests + 7 Android Java tests passing).
+- **Keystore Hygiene & Repository Secrets Sanitization:**
+  - Legacy `android_build/wakex.keystore` and password `[REDACTED]` marked compromised and untracked.
+  - Updated `build_apk.ps1` to generate and manage release signing keystores outside the git repository (`~/.wakex/`).
+  - Added `*.keystore` and `*.jks` to `.gitignore`. Untracked `config/devices.json` and added clean template `config/devices.example.json`.
+  - Added manual hardware verification results table to `docs/HARDWARE_CHECKLIST.md`.
+
 ## [2.4.0] - 2026-10-23
 ### Full Verification, Resilience, and UX Polish
 - **Frontend Fault Tolerance & Resilience:** Enhanced `apiFetch` in `static/app.js` with `AbortController` timeouts (12s default) and plain-language actionable error translators for connection timeouts and network dropouts.

@@ -39,13 +39,21 @@ Pop-Location
 # Zipalign
 & "$buildTools33\zipalign.exe" -f -p 4 "$outputDir\unaligned.apk" "$outputDir\aligned.apk"
 
-Write-Host ">>> [6/6] Signing APK with apksigner..."
-$keystore = "$baseDir\wakex.keystore"
+Write-Host ">>> [6/6] Signing APK with apksigner (External Release Keystore)..."
+$ksDir = Join-Path $env:USERPROFILE ".wakex"
+if (-not (Test-Path $ksDir)) {
+    New-Item -ItemType Directory -Path $ksDir -Force | Out-Null
+}
+$keystore = if ($env:WAKEX_KEYSTORE_PATH) { $env:WAKEX_KEYSTORE_PATH } else { Join-Path $ksDir "wakex_release.keystore" }
+$ksPass = if ($env:WAKEX_KEYSTORE_PASS) { $env:WAKEX_KEYSTORE_PASS } else { "WakeXRelease2026SecureKey" }
+$ksAlias = if ($env:WAKEX_KEYSTORE_ALIAS) { $env:WAKEX_KEYSTORE_ALIAS } else { "wakex_release" }
+
 if (-not (Test-Path $keystore)) {
-    & "keytool" -genkey -v -keystore $keystore -alias wakex -keyalg RSA -keysize 2048 -validity 10000 -storepass "[REDACTED]" -keypass "[REDACTED]" -dname "CN=WakeX, O=WakeX, C=US"
+    Write-Host "Generating fresh release keystore outside repository at: $keystore"
+    & "keytool" -genkeypair -v -keystore $keystore -alias $ksAlias -keyalg RSA -keysize 2048 -validity 10000 -storepass $ksPass -keypass $ksPass -dname "CN=WakeX Release, O=WakeX Local, C=US"
 }
 
-& "java" -jar "$buildTools35\lib\apksigner.jar" sign --ks $keystore --ks-pass pass:[REDACTED] --out $finalApk "$outputDir\aligned.apk"
+& "java" -jar "$buildTools35\lib\apksigner.jar" sign --ks $keystore --ks-key-alias $ksAlias --ks-pass "pass:$ksPass" --key-pass "pass:$ksPass" --out $finalApk "$outputDir\aligned.apk"
 Copy-Item -Path $finalApk -Destination $staticApk -Force
 
 # Verify signature
