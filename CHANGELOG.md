@@ -2,6 +2,18 @@
 
 All notable changes to the WakeX project are documented here.
 
+## [2.4.0] - 2026-10-23
+### Full Verification, Resilience, and UX Polish
+- **Frontend Fault Tolerance & Resilience:** Enhanced `apiFetch` in `static/app.js` with `AbortController` timeouts (12s default) and plain-language actionable error translators for connection timeouts and network dropouts.
+- **Automated Frontend Resilience Suite:** Added `tests/test_frontend_resilience.py` testing unauthenticated request handling, 401 pairing modal triggers, 429 rate limiting, malformed payload validation, and UI static asset integrity (36 total passing tests across the repo).
+- **Android Companion Unit Testing:** Added `android_build/test/WakeXUnitTest.java` testing Magic Packet generation, MAC sanitization, HMAC-SHA256 signature interoperability, and tamper detection directly against RFC 4231 test vectors.
+- **Android Lint & Code Quality:** Purged locale-dependent string operations in `MainActivity.java`, `WakeXAppWidgetProvider.java`, and `WakeXTileService.java` using `Locale.ROOT`; externalized all UI widget strings into `res/values/strings.xml` achieving 0 errors in Android SDK Lint.
+- **Home-Screen App Widget:** Added native `WakeXAppWidgetProvider.java` and `res/layout/widget_wakex.xml` providing 1-tap "Wake PC" from the Android home screen without loading the full WebView.
+- **3-Step Onboarding Wizard:** Added interactive first-time setup guide explaining Wi-Fi network detection, cryptographic pairing PIN, and hardware wake differences (Ethernet cold-wake vs. Wi-Fi AC-standby wake).
+- **Stealth Theme & Accessibility:** Added persistent Neon Red / Stealth Black (`#050508`) and high-contrast Light Theme with zero-flicker `<head>` restoration and WCAG AA 48×48px minimum touch targets.
+- **Manual Hardware Verification Checklist:** Authored `docs/HARDWARE_CHECKLIST.md` detailing exact BIOS/UEFI, OS power management, driver configuration, and verification steps for all 6 actions across Windows and Linux.
+- **Updated Binaries:** Rebuilt and smoke-tested single-file Windows tray binary (`WakeX.exe`, 40.7 MB) and Android package (`WakeX.apk`, 172.7 KB, Target SDK 35).
+
 ## [2.3.0] - 2026-10-23
 ### Multi-Platform Agent Hardening & Parity
 - **Agent Cryptographic Auth:** Hardened `agent/wakex_agent.py` to support dual-mode authentication: timing-safe Device Token (`hmac.compare_digest`) and full HMAC-SHA256 signature verification over `METHOD:PATH:TIMESTAMP:NONCE:BODY_SHA256`.

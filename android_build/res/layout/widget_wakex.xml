@@ -21,13 +21,13 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="⚡"
+            android:text="@string/widget_wake_btn"
             android:textSize="20sp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Wake PC"
+            android:text="@string/widget_wake_label"
             android:textColor="#FF2A44"
             android:textSize="12sp"
             android:textStyle="bold" />
@@ -51,13 +51,13 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="💻"
+            android:text="@string/widget_app_icon"
             android:textSize="20sp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="WakeX Hub"
+            android:text="@string/widget_app_label"
             android:textColor="#FFFFFF"
             android:textSize="12sp"
             android:textStyle="bold" />

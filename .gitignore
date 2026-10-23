@@ -17,6 +17,7 @@ dist/
 
 # Android build intermediate artifacts
 android_build/obj/
+android_build/test_classes/
 *.dex
 WakeX.apk.idsig
 

@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.widget.RemoteViews;
 import android.widget.Toast;
+import java.util.Locale;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -59,7 +60,7 @@ public class WakeXAppWidgetProvider extends AppWidgetProvider {
                 public void run() {
                     try {
                         for (String mac : macList) {
-                            String cleanMac = mac.replaceAll("[:\\-\\.]", "").toUpperCase();
+                            String cleanMac = mac.replaceAll("[:\\-\\.]", "").toUpperCase(Locale.ROOT);
                             if (cleanMac.length() != 12) continue;
 
                             byte[] macBytes = new byte[6];

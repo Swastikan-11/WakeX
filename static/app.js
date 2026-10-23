@@ -81,11 +81,33 @@ async function apiFetch(path, options = {}) {
   if (bodyStr) options.body = bodyStr;
   options.headers = await getAuthHeaders(options.method, path, bodyStr);
 
-  const res = await fetch(path, options);
-  if (res.status === 401 && !path.startsWith("/api/auth/")) {
-    showClientPairModal();
+  const timeoutMs = options.timeoutMs || 12000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    controller.abort(new Error("Request timed out after " + (timeoutMs / 1000) + "s. Plain-language fix: Ensure your PC is awake and reachable on your local Wi-Fi."));
+  }, timeoutMs);
+
+  if (!options.signal) {
+    options.signal = controller.signal;
   }
-  return res;
+
+  try {
+    const res = await fetch(path, options);
+    clearTimeout(timer);
+    if (res.status === 401 && !path.startsWith("/api/auth/")) {
+      showClientPairModal();
+    }
+    return res;
+  } catch (err) {
+    clearTimeout(timer);
+    if (err.name === "AbortError" || (err.message && err.message.includes("timed out"))) {
+      throw new Error("Request timed out. Plain-language fix: Check that your host PC is turned on and connected to the same Wi-Fi.");
+    }
+    if (err.name === "TypeError" && err.message && err.message.includes("fetch")) {
+      throw new Error("Cannot connect to WakeX Hub. Plain-language fix: Verify your device is on the same local network subnet.");
+    }
+    throw err;
+  }
 }
 
 function authHeaders() {

@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">WakeX</string>
+    <string name="widget_wake_btn">⚡</string>
+    <string name="widget_wake_label">Wake PC</string>
+    <string name="widget_app_icon">💻</string>
+    <string name="widget_app_label">WakeX Hub</string>
 </resources>

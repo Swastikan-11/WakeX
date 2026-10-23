@@ -56,6 +56,7 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -245,7 +246,7 @@ public class MainActivity extends Activity {
                 String secret = getSecretFromKeyStore();
                 if (secret == null || secret.isEmpty()) return "";
                 try {
-                    String signString = method.toUpperCase() + ":" + path + ":" + timestamp + ":" + nonce + ":" + bodyHash;
+                    String signString = method.toUpperCase(Locale.ROOT) + ":" + path + ":" + timestamp + ":" + nonce + ":" + bodyHash;
                     Mac hmac = Mac.getInstance("HmacSHA256");
                     SecretKeySpec keySpec = new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
                     hmac.init(keySpec);
@@ -898,7 +899,7 @@ public class MainActivity extends Activity {
 
                     for (String mac : macAddresses) {
                         if (mac == null || mac.trim().isEmpty()) continue;
-                        String cleanMac = mac.replaceAll("[:\\-\\.]", "").toUpperCase();
+                        String cleanMac = mac.replaceAll("[:\\-\\.]", "").toUpperCase(Locale.ROOT);
                         if (cleanMac.length() != 12) continue;
 
                         byte[] macBytes = new byte[6];

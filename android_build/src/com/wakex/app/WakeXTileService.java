@@ -6,6 +6,7 @@ import android.os.Build;
 import android.service.quicksettings.Tile;
 import android.service.quicksettings.TileService;
 import android.widget.Toast;
+import java.util.Locale;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -41,7 +42,7 @@ public class WakeXTileService extends TileService {
             public void run() {
                 try {
                     for (String mac : macList) {
-                        String cleanMac = mac.replaceAll("[:\\-\\.]", "").toUpperCase();
+                        String cleanMac = mac.replaceAll("[:\\-\\.]", "").toUpperCase(Locale.ROOT);
                         if (cleanMac.length() != 12) continue;
 
                         byte[] macBytes = new byte[6];
