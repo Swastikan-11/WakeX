@@ -85,6 +85,17 @@ class ClientPairRequest(BaseModel):
     client_name: Optional[str] = "Mobile Device"
     client_id: Optional[str] = None
 
+class PairExchangeRequest(BaseModel):
+    client_id: str
+    client_name: Optional[str] = "Mobile Device"
+    client_public_key: str
+    client_nonce: str
+
+class PairAuthenticateRequest(BaseModel):
+    session_id: str
+    pairing_code: str
+    client_proof: str
+
 class BotMessageRequest(BaseModel):
     message: str
 
@@ -158,38 +169,49 @@ async def create_pairing_code(_: dict = Depends(security.verify_authenticated_re
     }
 
 
-@app.post("/api/auth/pair")
-async def pair_client_device(req: ClientPairRequest, request: Request):
+@app.post("/api/auth/pair/exchange")
+async def pair_exchange_endpoint(req: PairExchangeRequest, request: Request):
     """
-    Exchanges one-time pairing code for a permanent 256-bit client secret.
-    If no clients have ever been paired (first-run onboarding), auto-pairs the first device directly.
+    Step 1: Ephemeral X25519 Diffie-Hellman Key Exchange.
+    Establishes ECDH shared secret and derives client secret via HKDF without transmitting it.
     """
     client_ip = request.client.host if request.client else "unknown"
     security.check_rate_limit(client_ip)
-
-    paired = security.get_paired_clients()
-    code = (req.pairing_code or "").strip()
-
-    # Rule: If pairing code is provided and valid, consume it
-    if code and code in security.ACTIVE_PAIRING_CODES:
-        del security.ACTIVE_PAIRING_CODES[code]
-    elif paired:
-        # If clients already exist, pairing code is strictly mandatory
-        security.record_auth_failure(client_ip)
-        raise HTTPException(status_code=401, detail="Invalid or expired pairing code.")
-
-    # Register client and return credentials
-    credentials = security.register_paired_client(
-        client_name=req.client_name or "Android Device",
-        client_id=req.client_id
+    res = security.start_pairing_exchange(
+        client_id=req.client_id,
+        client_name=req.client_name or "Mobile Device",
+        client_public_key_hex=req.client_public_key,
+        client_nonce=req.client_nonce
     )
-    security.clear_auth_failures(client_ip)
-    return {
-        "status": "paired",
-        "message": "Device paired successfully with 256-bit cryptographic secret.",
-        "client_id": credentials["client_id"],
-        "client_secret": credentials["client_secret"]
-    }
+    return res
+
+
+@app.post("/api/auth/pair/authenticate")
+async def pair_authenticate_endpoint(req: PairAuthenticateRequest, request: Request):
+    """
+    Step 2: Mutual PIN authentication of the handshake transcript.
+    Authenticates handshake, confirms derived secret, and enforces per-PIN rate limits.
+    """
+    client_ip = request.client.host if request.client else "unknown"
+    success, data, err = security.authenticate_pairing_session(
+        session_id=req.session_id,
+        pairing_code=req.pairing_code,
+        client_proof=req.client_proof,
+        client_ip=client_ip
+    )
+    if not success:
+        status_code = 429 if "revoked" in err or "locked out" in err else 401
+        raise HTTPException(status_code=status_code, detail=err)
+    return data
+
+
+@app.post("/api/auth/pair")
+async def pair_client_device(req: ClientPairRequest, request: Request):
+    """Legacy pairing endpoint - informs client to use X25519 handshake."""
+    raise HTTPException(
+        status_code=400,
+        detail="WakeX v2.4+ requires ephemeral X25519 key exchange (/api/auth/pair/exchange). Please update client."
+    )
 
 
 @app.get("/api/auth/paired-clients")

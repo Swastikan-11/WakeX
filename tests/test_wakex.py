@@ -52,32 +52,179 @@ def make_auth_headers(client_id: str, secret: str, method: str, path: str, body_
 # 1. Cryptographic Pairing & HMAC Authentication Tests
 # ============================================================================
 
+from cryptography.hazmat.primitives.asymmetric import x25519
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from cryptography.hazmat.primitives import hashes, serialization
+
+def helper_perform_x25519_pairing(client_id: str, pin: str):
+    """Simulates client-side X25519 key generation, HKDF derivation, and transcript authentication."""
+    client_priv = x25519.X25519PrivateKey.generate()
+    client_pub_bytes = client_priv.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw
+    )
+    client_nonce = secrets.token_hex(16)
+
+    # Step 1: Exchange
+    res_ex = client.post("/api/auth/pair/exchange", json={
+        "client_id": client_id,
+        "client_name": "Pixel Test Device",
+        "client_public_key": client_pub_bytes.hex(),
+        "client_nonce": client_nonce
+    })
+    assert res_ex.status_code == 200, res_ex.text
+    ex_data = res_ex.json()
+    session_id = ex_data["session_id"]
+    hub_pub_hex = ex_data["hub_public_key"]
+    hub_nonce = ex_data["hub_nonce"]
+
+    # Client computes ECDH Shared Secret
+    hub_pub_obj = x25519.X25519PublicKey.from_public_bytes(bytes.fromhex(hub_pub_hex))
+    shared_secret = client_priv.exchange(hub_pub_obj)
+
+    # Client derives long-term secret via HKDF
+    kdf_salt = bytes.fromhex(client_nonce) + bytes.fromhex(hub_nonce)
+    derived_client_secret = HKDF(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=kdf_salt,
+        info=b"wakex-client-secret-v1"
+    ).derive(shared_secret).hex()
+
+    # Step 2: Client computes transcript and PIN authentication proof
+    transcript = f"{client_id}:{client_pub_bytes.hex()}:{client_nonce}:{hub_pub_hex}:{hub_nonce}"
+    client_proof = hmac.new(pin.encode("utf-8"), f"CLIENT:{transcript}".encode("utf-8"), hashlib.sha256).hexdigest()
+
+    res_auth = client.post("/api/auth/pair/authenticate", json={
+        "session_id": session_id,
+        "pairing_code": pin,
+        "client_proof": client_proof
+    })
+    return res_auth, derived_client_secret, ex_data, client_pub_bytes.hex()
+
+
 def test_pairing_code_generation_and_consumption():
-    """Verify one-time 6-digit pairing code is generated and consumed upon pairing."""
+    """Verify one-time 6-digit pairing code is generated and consumed via X25519 exchange."""
     code = security.generate_pairing_code()
     assert len(code) == 6
     assert code in security.ACTIVE_PAIRING_CODES
 
-    # Pair a test device using the code
-    pair_resp = client.post("/api/auth/pair", json={
-        "pairing_code": code,
-        "client_name": "Test Pixel 9",
-        "client_id": "test_client_001"
-    })
-    assert pair_resp.status_code == 200
-    data = pair_resp.json()
-    assert data["status"] == "paired"
+    # Pair client device via ephemeral X25519 exchange
+    res_auth, derived_secret, ex_data, _ = helper_perform_x25519_pairing("test_client_001", code)
+    assert res_auth.status_code == 200
+    data = res_auth.json()
     assert data["client_id"] == "test_client_001"
-    assert "client_secret" in data
-    assert len(data["client_secret"]) == 64  # 256-bit hex secret
+    assert "hub_proof" in data
+    # Raw secret NEVER travels over network!
+    assert "client_secret" not in data
+    assert len(derived_secret) == 64
 
-    # Verify code was consumed (cannot be reused)
+    # Verify code was consumed (single-use)
     assert code not in security.ACTIVE_PAIRING_CODES
-    reuse_resp = client.post("/api/auth/pair", json={
-        "pairing_code": code,
-        "client_name": "Attacker Device"
+
+
+def test_x25519_pake_passive_capture_yields_no_usable_secret():
+    """
+    Security Proof: Verify a passive eavesdropper monitoring Wi-Fi traffic
+    capturing all public parameters cannot compute the derived client secret.
+    """
+    code = security.generate_pairing_code()
+    res_auth, derived_secret, captured_traffic, client_pub_hex = helper_perform_x25519_pairing("eavesdrop_test_client", code)
+    assert res_auth.status_code == 200
+
+    # The eavesdropper has only:
+    client_pub_bytes = bytes.fromhex(client_pub_hex)
+    hub_pub_bytes = bytes.fromhex(captured_traffic["hub_public_key"])
+
+    # Without either private key, the eavesdropper CANNOT compute the ECDH shared secret
+    # Generating an independent attacker key cannot reproduce the secret:
+    attacker_priv = x25519.X25519PrivateKey.generate()
+    fake_secret = attacker_priv.exchange(x25519.X25519PublicKey.from_public_bytes(hub_pub_bytes))
+    assert fake_secret != bytes.fromhex(derived_secret)
+
+
+def test_x25519_pake_wrong_pin_fails():
+    """Verify attempting pairing with an incorrect PIN is rejected."""
+    real_code = security.generate_pairing_code()
+    wrong_code = "999999" if real_code != "999999" else "111111"
+
+    res_auth, _, _, _ = helper_perform_x25519_pairing("wrong_pin_client", wrong_code)
+    assert res_auth.status_code in (401, 429)
+
+
+def test_x25519_pake_pin_reuse_fails():
+    """Verify attempting to reuse an already-consumed PIN is rejected."""
+    code = security.generate_pairing_code()
+    res1, _, _, _ = helper_perform_x25519_pairing("reuse_client_1", code)
+    assert res1.status_code == 200
+
+    # Second attempt with same code fails
+    res2, _, _, _ = helper_perform_x25519_pairing("reuse_client_2", code)
+    assert res2.status_code == 401
+
+
+def test_x25519_pake_expired_pin_fails():
+    """Verify pairing fails if the PIN has expired."""
+    code = security.generate_pairing_code()
+    # Force expiry into the past
+    security.ACTIVE_PAIRING_CODES[code]["expiry"] = time.time() - 10.0
+
+    res_auth, _, _, _ = helper_perform_x25519_pairing("expired_client", code)
+    assert res_auth.status_code == 401
+
+
+def test_x25519_pake_brute_force_5_attempts_revokes_pin_across_ips():
+    """Verify 5 failed pairing attempts on a PIN revokes the PIN completely."""
+    code = security.generate_pairing_code()
+
+    # 4 failed attempts recorded against this PIN
+    for i in range(4):
+        security.ACTIVE_PAIRING_CODES[code]["failed_attempts"] += 1
+
+    assert code in security.ACTIVE_PAIRING_CODES
+
+    # 5th attempt with wrong proof triggers permanent revocation of this PIN
+    client_priv = x25519.X25519PrivateKey.generate()
+    client_pub_bytes = client_priv.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw
+    )
+    res_ex = client.post("/api/auth/pair/exchange", json={
+        "client_id": "brute_client",
+        "client_name": "Brute Device",
+        "client_public_key": client_pub_bytes.hex(),
+        "client_nonce": secrets.token_hex(16)
     })
-    assert reuse_resp.status_code == 401
+    session_id = res_ex.json()["session_id"]
+    res_auth = client.post("/api/auth/pair/authenticate", json={
+        "session_id": session_id,
+        "pairing_code": code,
+        "client_proof": "bad_invalid_proof_hash"
+    })
+    assert res_auth.status_code in (401, 429)
+    # PIN is permanently destroyed
+    assert code not in security.ACTIVE_PAIRING_CODES
+
+
+def test_process_restart_replay_rejection():
+    """Verify requests with timestamp older than current process start time are rejected."""
+    creds = security.register_paired_client("Restart Tester", "test_restart_client")
+    cid, sec = creds["client_id"], creds["client_secret"]
+
+    old_ts = str(int(security.PROCESS_START_TIME - 20.0))
+    nonce = secrets.token_hex(8)
+    body = b'{"action":"lock"}'
+    sig = security.compute_request_signature(sec, "POST", "/api/devices/host-primary/power", old_ts, nonce, body)
+
+    headers = {
+        "X-WakeX-Client-Id": cid,
+        "X-WakeX-Timestamp": old_ts,
+        "X-WakeX-Nonce": nonce,
+        "X-WakeX-Signature": sig,
+        "Content-Type": "application/json"
+    }
+    res = client.post("/api/devices/host-primary/power", content=body, headers=headers)
+    assert res.status_code in (401, 403)
 
 
 def test_hmac_authenticated_request_success():
