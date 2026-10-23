@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>WakeX Hub</title>
+  <link rel="manifest" href="/static/manifest.json">
+  <link rel="icon" type="image/png" href="/static/icon.png">
+  <link rel="stylesheet" href="/static/styles.css">
+  <meta name="theme-color" content="#050508">
+  <script>
+    // Immediate Theme Initialization to prevent flash
+    (function() {
+      const savedTheme = localStorage.getItem('wakex_theme') || 'dark';
+      if (savedTheme === 'light') {
+        document.documentElement.classList.add('light-theme');
+        document.addEventListener('DOMContentLoaded', () => document.body.classList.add('light-theme'));
+      }
+    })();
+  </script>
+</head>
+<body>
+
+  <!-- MAIN APP SHELL -->
+  <div class="app-container" id="app-shell">
+    
+    <!-- Mobile Sidebar Backdrop Overlay -->
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="brand">
+        <img src="/static/icon.png" alt="WakeX Logo" class="brand-icon" style="border-radius: 50%;">
+        <span class="brand-title">WakeX</span>
+        <button id="theme-toggle-desktop" class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Light / Dark Mode" style="margin-left: auto;">🌙</button>
+      </div>
+
+      <ul class="nav-menu">
+        <li class="nav-item active" data-target="view-dashboard">
+          <span>📊</span> Dashboard
+        </li>
+        <li class="nav-item" data-target="view-devices">
+          <span>🖥️</span> Paired Devices
+        </li>
+        <li class="nav-item" data-target="view-workspaces">
+          <span>💼</span> Workspaces
+        </li>
+        <li class="nav-item" data-target="view-schedule">
+          <span>⏰</span> Wake & Schedule
+        </li>
+        <li class="nav-item" data-target="view-remote">
+          <span>🎮</span> Remote Access
+        </li>
+        <li class="nav-item" data-target="view-mobile-apk">
+          <span>📱</span> Mobile App (.APK)
+        </li>
+        <li class="nav-item" data-target="view-settings">
+          <span>⚙️</span> Settings
+        </li>
+      </ul>
+
+      <div class="sidebar-footer">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div class="status-dot"></div>
+          <span id="sidebar-footer-text">WakeX Hub • Ready</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      
+      <!-- Mobile Top Bar -->
+      <div class="topbar">
+        <button class="menu-toggle" aria-label="Toggle Menu">☰</button>
+        <span class="brand-title" style="font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+          <img src="/static/icon.png" alt="WakeX Logo" style="width: 24px; height: 24px; border-radius: 50%;">
+          WakeX
+        </span>
+        <button id="theme-toggle-mobile" class="theme-toggle-btn" onclick="toggleTheme()" title="Toggle Light / Dark Mode">🌙</button>
+      </div>
+
+      <!-- ================= 1. DASHBOARD VIEW ================= -->
+      <section id="view-dashboard" class="view-section active">
+        
+        <div class="section-header">
+          <h1 class="section-title">Workstation Command Center</h1>
+          <p class="section-desc">Remote power, target-isolated multi-device wake, and workspace orchestrator.</p>
+        </div>
+
+        <!-- ACTIVE DEVICE SWITCHER & QUICK WAKE BAR -->
+        <div class="device-header-bar">
+          <div class="device-active-info">
+            <span style="font-size: 1.6rem;">💻</span>
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <strong id="dashboard-device-name" style="font-size: 1.15rem;">Host Computer</strong>
+                <button class="btn-small" onclick="promptRenameActiveDevice()" title="Rename Active Device">✏️ Rename</button>
+              </div>
+              <div style="font-size: 0.8rem; color: var(--text-secondary);" id="dashboard-device-meta">
+                Loading device metadata...
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <select id="quick-device-select" class="workspace-select" style="min-width: 170px; padding: 8px 12px; font-size: 0.88rem;" onchange="switchDashboardDevice(this.value)">
+              <!-- Populated dynamically -->
+            </select>
+            <!-- Prominent Turn On Button -->
+            <button class="btn-turn-on-glowing" id="btn-dashboard-turnon" onclick="wakeActiveDevice()">
+              <span>⚡</span> Turn On PC
+            </button>
+          </div>
+        </div>
+
+        <!-- FRONT DASHBOARD: POWER CONTROLS DECK -->
+        <div class="card">
+          <div class="card-title">
+            <span>⚡ Target Power Controls</span>
+            <span id="stat-power-state" style="font-size: 0.85rem; color: var(--accent-amber);">⚡ AC Connected</span>
+          </div>
+
+                    <div class="power-deck" style="grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));">
+            <!-- 1. Turn On / Wake Button -->
+            <button id="power-btn-turnon" class="power-btn turn-on" onclick="wakeActiveDevice()">
+              <span class="btn-icon">⚡</span>
+              <span class="btn-label" style="color: var(--accent-green);">Turn On</span>
+              <span class="btn-sub" id="power-sub-turnon">Wake via Magic Packet</span>
+            </button>
+
+            <!-- 2. Unlock Screen Button -->
+            <button id="power-btn-unlock" class="power-btn unlock" style="border-color: rgba(16, 185, 129, 0.4);" onclick="promptPowerAction('unlock')">
+              <span class="btn-icon">🔓</span>
+              <span class="btn-label" style="color: var(--accent-green);">Unlock</span>
+              <span class="btn-sub" id="power-sub-unlock">Wake & dismiss lock</span>
+            </button>
+
+            <!-- 3. Lock Workstation Button -->
+            <button id="power-btn-lock" class="power-btn" style="border-color: rgba(6, 182, 212, 0.3);" onclick="promptPowerAction('lock')">
+              <span class="btn-icon">🔒</span>
+              <span class="btn-label" style="color: var(--accent-cyan);">Lock</span>
+              <span class="btn-sub" id="power-sub-lock">Lock screen session</span>
+            </button>
+
+            <!-- 4. Sleep Button -->
+            <button id="power-btn-sleep" class="power-btn sleep" onclick="promptPowerAction('sleep')">
+              <span class="btn-icon">🌙</span>
+              <span class="btn-label">Sleep</span>
+              <span class="btn-sub" id="power-sub-sleep">Low-power standby</span>
+            </button>
+
+            <!-- 5. Restart Button -->
+            <button id="power-btn-restart" class="power-btn restart" onclick="promptPowerAction('restart')">
+              <span class="btn-icon">🔄</span>
+              <span class="btn-label">Restart</span>
+              <span class="btn-sub" id="power-sub-restart">Clean OS reboot</span>
+            </button>
+
+            <!-- 6. Hibernate Button -->
+            <button id="power-btn-hibernate" class="power-btn hibernate" onclick="promptPowerAction('hibernate')">
+              <span class="btn-icon">💤</span>
+              <span class="btn-label">Hibernate</span>
+              <span class="btn-sub" id="power-sub-hibernate">0-Watt Cold Sleep (RTC Ready)</span>
+            </button>
+
+            <!-- 7. Shut Down Button -->
+            <button id="power-btn-shutdown" class="power-btn shutdown" onclick="promptPowerAction('shutdown')">
+              <span class="btn-icon">🛑</span>
+              <span class="btn-label">Shut Down</span>
+              <span class="btn-sub" id="power-sub-shutdown">Power off completely</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- WORKSPACE SELECTOR CARD -->
+        <div class="card">
+          <div class="card-title">
+            <span>🚀 Quick Workspace Launcher</span>
+            <span style="font-size: 0.82rem; color: var(--text-secondary);">One-tap launch for browsers & tools</span>
+          </div>
+          
+          <div class="workspace-selector-box">
+            <select id="dashboard-workspace-select" class="workspace-select">
+              <option value="work_shift">Loading profiles...</option>
+            </select>
+            <button id="btn-launch-workspace" class="btn-launch-workspace" onclick="launchSelectedWorkspace()">
+              <span>🚀</span> Launch Workspace
+            </button>
+          </div>
+        </div>
+
+        <!-- LIVE TELEMETRY METERS -->
+        <div class="telemetry-grid">
+          <div class="stat-card">
+            <div class="stat-label">CPU LOAD</div>
+            <div class="stat-value" id="stat-cpu">--%</div>
+            <div class="progress-bar-bg"><div class="progress-bar-fill" id="bar-cpu" style="width: 0%;"></div></div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-label">RAM USAGE</div>
+            <div class="stat-value" id="stat-ram">--%</div>
+            <div class="progress-bar-bg"><div class="progress-bar-fill" id="bar-ram" style="width: 0%; background: var(--accent-cyan);"></div></div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-label">BATTERY STATUS</div>
+            <div class="stat-value" id="stat-bat">--%</div>
+            <div class="progress-bar-bg"><div class="progress-bar-fill" id="bar-bat" style="width: 0%; background: var(--accent-green);"></div></div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-label">SYSTEM UPTIME</div>
+            <div class="stat-value" id="stat-uptime">--</div>
+            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 10px;">Since last boot</div>
+          </div>
+        </div>
+
+        <!-- SCREEN SNAPSHOT PREVIEW -->
+        <div class="card">
+          <div class="card-title">
+            <span>📸 Live Screen Snapshot</span>
+            <button id="btn-refresh-screen" class="btn-primary" style="padding: 6px 14px; font-size: 0.82rem;">🔄 Refresh</button>
+          </div>
+          <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">
+            Verify your work tabs and applications are running on the desktop:
+          </p>
+          <div class="screen-preview-container">
+            <img id="screen-preview-img" class="screen-preview-img" src="/api/screen" alt="Desktop Screen Preview">
+          </div>
+        </div>
+
+        <!-- HARDWARE WOL / WoWLAN READINESS DECK -->
+        <div class="card" id="wol-readiness-card">
+          <div class="card-title">
+            <span>⚡ Hardware Wake-on-LAN & WoWLAN Readiness</span>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem; background: var(--accent-cyan); color: #080C14; font-weight: 600;" onclick="testWolPacketSelf()">📡 Test WoL Broadcast</button>
+              <button class="btn-primary" style="padding: 6px 12px; font-size: 0.8rem;" onclick="loadReadinessReport()">🔄 Refresh</button>
+            </div>
+          </div>
+          <div id="readiness-summary" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 12px; background: rgba(0,0,0,0.25); border-radius: 8px; margin-bottom: 12px; border: 1px solid var(--border-color);">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span id="readiness-badge" style="font-size: 1.4rem; font-weight: 800; color: var(--accent-green); padding: 6px 12px; background: rgba(16,185,129,0.15); border-radius: 8px; border: 1px solid var(--accent-green);">--%</span>
+              <div>
+                <div id="readiness-title" style="font-weight: 700; font-size: 0.95rem;">Checking hardware configuration...</div>
+                <div id="readiness-subtitle" style="font-size: 0.8rem; color: var(--text-secondary);">Querying network adapters & power states</div>
+              </div>
+            </div>
+          </div>
+
+          <div id="readiness-checklist" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
+            <!-- Populated dynamically -->
+          </div>
+
+          <div id="readiness-tips" style="display: none; padding: 10px; background: rgba(245,158,11,0.08); border-left: 3px solid var(--accent-amber); border-radius: 4px; font-size: 0.82rem; color: #FCD34D;">
+            <!-- Tips -->
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ================= 2. PAIRED DEVICES VIEW ================= -->
+      <section id="view-devices" class="view-section">
+        <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h1 class="section-title">Paired Computers & Devices</h1>
+            <p class="section-desc">Target-isolated device control: remote commands only execute on the selected computer.</p>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn-primary" style="background: var(--accent-cyan); color: #080C14; font-weight: 600;" onclick="openPairingCodeModal()">🔑 Phone Pairing Code</button>
+            <button class="btn-primary" onclick="openPairDeviceModal()">➕ Pair Secondary PC</button>
+          </div>
+        </div>
+
+        <div id="devices-container" class="device-grid">
+          <!-- Populated dynamically -->
+        </div>
+      </section>
+
+      <!-- ================= 3. WORKSPACES VIEW ================= -->
+      <section id="view-workspaces" class="view-section">
+        <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <h1 class="section-title">Workspace Profiles</h1>
+            <p class="section-desc">Configure automated Start Menu applications, websites, and scheduled launch times.</p>
+          </div>
+          <button class="btn-primary" onclick="openCreateWorkspaceModal()" style="display: flex; align-items: center; gap: 8px;">
+            <span>➕</span> Create Workspace
+          </button>
+        </div>
+
+        <div id="workspaces-list" class="device-grid">
+          <!-- Populated dynamically -->
+        </div>
+      </section>
+
+
+      <!-- ================= 4. SCHEDULE VIEW ================= -->
+      <section id="view-schedule" class="view-section">
+        <div class="section-header">
+          <h1 class="section-title">Hardware RTC Wake Scheduler</h1>
+          <p class="section-desc">Programs the motherboard RTC to power on the PC from Hibernate automatically before your shift.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-title">⏰ Shift Auto-Wake Settings</div>
+
+          <div class="form-group" style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+            <input type="checkbox" id="schedule-enabled" style="width: 20px; height: 20px;">
+            <label for="schedule-enabled" style="font-weight: 600;">Enable Hardware Wake Timer</label>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="schedule-time">Wake-Up Time (24-Hour Format, e.g. 08:50):</label>
+            <input type="time" id="schedule-time" class="form-input" style="max-width: 200px;" value="08:50">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Active Days:</label>
+            <div style="display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px;">
+              <label><input type="checkbox" class="day-checkbox" value="Mon"> Mon</label>
+              <label><input type="checkbox" class="day-checkbox" value="Tue"> Tue</label>
+              <label><input type="checkbox" class="day-checkbox" value="Wed"> Wed</label>
+              <label><input type="checkbox" class="day-checkbox" value="Thu"> Thu</label>
+              <label><input type="checkbox" class="day-checkbox" value="Fri"> Fri</label>
+              <label><input type="checkbox" class="day-checkbox" value="Sat"> Sat</label>
+              <label><input type="checkbox" class="day-checkbox" value="Sun"> Sun</label>
+            </div>
+          </div>
+
+          <button class="btn-primary" onclick="saveSchedule()" style="margin-top: 14px;">💾 Save Schedule to Motherboard</button>
+        </div>
+      </section>
+
+      <!-- ================= 5. REMOTE ACCESS VIEW ================= -->
+      <section id="view-remote" class="view-section">
+        <div class="section-header">
+          <h1 class="section-title">Remote Desktop Gateway</h1>
+          <p class="section-desc">Connect and control your desktop from your phone or office computer.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🎮 Recommended Remote Tools</div>
+          <p style="color: var(--text-secondary); margin-bottom: 16px;">
+            Choose your preferred remote desktop connection client:
+          </p>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+            <div style="background: rgba(255,255,255,0.03); padding: 18px; border-radius: 10px; border: 1px solid var(--border-color);">
+              <h3 style="margin-bottom: 8px;">🚀 RustDesk (Zero Config)</h3>
+              <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">Open-source, self-hosted or P2P remote desktop. Works out of the box with zero router setup.</p>
+              <a href="https://rustdesk.com" target="_blank" class="btn-primary" style="display: inline-block; text-decoration: none; font-size: 0.85rem;">Download RustDesk</a>
+            </div>
+
+            <div style="background: rgba(255,255,255,0.03); padding: 18px; border-radius: 10px; border: 1px solid var(--border-color);">
+              <h3 style="margin-bottom: 8px;">🔒 Tailscale + Windows/Linux RDP</h3>
+              <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;">Encrypted WireGuard mesh network. Use native Remote Desktop apps on mobile.</p>
+              <a href="https://tailscale.com" target="_blank" class="btn-primary" style="display: inline-block; text-decoration: none; font-size: 0.85rem; background: var(--accent-cyan);">Get Tailscale</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 6. MOBILE APP (.APK) VIEW ================= -->
+      <section id="view-mobile-apk" class="view-section">
+        <div class="section-header">
+          <h1 class="section-title">WakeX Mobile Android App</h1>
+          <p class="section-desc">Install the native WakeX Android application (.apk) on your smartphone.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📱 Download WakeX.apk</div>
+          <p style="color: var(--text-secondary); margin-bottom: 16px; line-height: 1.6;">
+            Install the standalone WakeX Android app directly onto your phone to control power, wake PCs, and monitor your system from anywhere.
+          </p>
+
+          <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+            <a href="/download/wakex.apk" download="WakeX.apk" class="btn-turn-on-glowing" style="text-decoration: none; font-size: 1rem;">
+              <span>⬇️</span> Download WakeX.apk
+            </a>
+            <span style="font-size: 0.85rem; color: var(--text-secondary);">Direct download link for Android</span>
+          </div>
+
+          <div style="margin-top: 24px; padding: 16px; background: rgba(255,255,255,0.02); border-radius: 10px; border: 1px solid var(--border-color);">
+            <strong style="color: var(--accent-amber);">📲 Installation Instructions:</strong>
+            <ol style="margin-left: 20px; margin-top: 8px; font-size: 0.88rem; color: var(--text-secondary); line-height: 1.6;">
+              <li>Download <strong>WakeX.apk</strong> on your Android phone.</li>
+              <li>Tap the file to install (allow "Install from Unknown Sources" if prompted).</li>
+              <li>Open WakeX, enter your PC's IP (e.g. <code>192.168.1.23:8000</code> or your Tailscale IP), and enter your Master Security PIN.</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= 7. SETTINGS VIEW ================= -->
+      <section id="view-settings" class="view-section">
+        <div class="section-header">
+          <h1 class="section-title">Application Settings</h1>
+          <p class="section-desc">Manage visual themes, system configuration, background auto-start, and network privacy.</p>
+        </div>
+
+        <!-- THEME & APPEARANCE CARD -->
+        <div class="card" id="card-appearance">
+          <div class="card-title">🎨 Appearance & Theme</div>
+          <p class="section-desc" style="margin-bottom: 16px;">Select your preferred visual style. All themes feature high-contrast palettes.</p>
+          <div class="form-group">
+            <label class="form-label">Theme Mode:</label>
+            <div class="theme-options-grid">
+              <button class="theme-select-btn active" id="btn-theme-dark" onclick="setTheme('dark')">
+                <div class="theme-preview dark-preview">
+                  <div class="preview-dot red-dot"></div>
+                </div>
+                <div style="font-weight: 600;">Dark Theme (Default)</div>
+                <div style="font-size: 0.8rem; color: var(--text-secondary);">OLED Stealth Black & Cyberpunk Neon Red</div>
+              </button>
+              <button class="theme-select-btn" id="btn-theme-light" onclick="setTheme('light')">
+                <div class="theme-preview light-preview">
+                  <div class="preview-dot crimson-dot"></div>
+                </div>
+                <div style="font-weight: 600;">Light Theme</div>
+                <div style="font-size: 0.8rem; color: var(--text-secondary);">Clean Modern White & Crimson Ruby Red</div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">⚙️ System Configuration</div>
+          <div class="form-group">
+            <label class="form-label">Service Port:</label>
+            <input type="text" class="form-input" value="8000" disabled style="max-width: 150px; opacity: 0.6;">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Operating System:</label>
+            <input type="text" class="form-input" value="Auto-Detected (Windows / Linux)" disabled style="max-width: 320px; opacity: 0.6;">
+          </div>
+        </div>
+      </section>
+
+      <!-- MOBILE BOTTOM NAVIGATION DOCK -->
+      <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+        <button class="bottom-nav-item active" data-target="view-dashboard">
+          <span class="nav-icon">⚡</span>
+          <span class="nav-label">Power</span>
+        </button>
+        <button class="bottom-nav-item" data-target="view-devices">
+          <span class="nav-icon">🖥️</span>
+          <span class="nav-label">Devices</span>
+        </button>
+        <button class="bottom-nav-item" data-target="view-workspaces">
+          <span class="nav-icon">💼</span>
+          <span class="nav-label">Spaces</span>
+        </button>
+        <button class="bottom-nav-item" data-target="view-schedule">
+          <span class="nav-icon">⏰</span>
+          <span class="nav-label">Schedule</span>
+        </button>
+        <button class="bottom-nav-item" id="mobile-menu-trigger">
+          <span class="nav-icon">☰</span>
+          <span class="nav-label">More</span>
+        </button>
+      </nav>
+
+    </main>
+
+  </div>
+
+  <!-- IN-APP FLOATING INTERACTIVE BOT -->
+  <button id="bot-toggle-btn" class="bot-toggle-btn" title="Open WakeX Assistant">💬</button>
+
+  <div id="bot-drawer" class="bot-drawer">
+    <div class="bot-header">
+      <div class="bot-title">
+        <span>🤖</span> WakeX Assistant
+      </div>
+      <button id="bot-close-btn" class="bot-close-btn">✕</button>
+    </div>
+
+    <div id="bot-messages" class="bot-messages">
+      <!-- Chat history loaded here -->
+    </div>
+
+    <!-- Quick Action Chips -->
+    <div class="bot-chips">
+      <span class="bot-chip" onclick="botQuickAction('Turn on PC')">⚡ Turn On PC</span>
+      <span class="bot-chip" onclick="botQuickAction('Devices')">🖥️ Devices</span>
+      <span class="bot-chip" onclick="botQuickAction('Status')">📊 Status</span>
+      <span class="bot-chip" onclick="botQuickAction('Screenshot')">📸 Screenshot</span>
+      <span class="bot-chip" onclick="botQuickAction('Battery')">🔋 Battery</span>
+      <span class="bot-chip" onclick="botQuickAction('Unlock')">🔓 Unlock</span>
+      <span class="bot-chip" onclick="botQuickAction('Lock')">🔒 Lock</span>
+      <span class="bot-chip" onclick="botQuickAction('Hibernate')">💤 Hibernate</span>
+
+    </div>
+
+    <div class="bot-input-area">
+      <input type="text" id="bot-input" class="bot-input" placeholder="Type a command or 'Turn on PC'...">
+      <button id="bot-send-btn" class="bot-send-btn">➤</button>
+    </div>
+  </div>
+
+  <!-- CONFIRMATION MODAL FOR POWER ACTIONS -->
+  <div id="power-modal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-icon">⚠️</div>
+      <h3 class="modal-title" id="modal-title">Confirm Power Action</h3>
+      <p class="modal-desc" id="modal-desc" style="white-space: pre-line;">Are you sure you want to perform this action?</p>
+      
+      <div class="modal-actions">
+        <button id="modal-cancel-btn" class="modal-btn cancel">Cancel</button>
+        <button id="modal-confirm-btn" class="modal-btn confirm">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RENAME DEVICE MODAL -->
+  <div id="rename-modal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-icon">✏️</div>
+      <h3 class="modal-title">Rename Device</h3>
+      <p class="modal-desc">Enter a custom name for this computer:</p>
+      
+      <div class="form-group" style="text-align: left;">
+        <input type="text" id="rename-input" class="form-input" placeholder="e.g. My Work Laptop, Office Desktop">
+      </div>
+
+      <div class="modal-actions">
+        <button class="modal-btn cancel" onclick="closeRenameModal()">Cancel</button>
+        <button class="modal-btn confirm" style="background: var(--accent-amber); color: #000;" onclick="submitDeviceRename()">Save Name</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAIR NEW DEVICE MODAL -->
+  <div id="pair-modal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 480px; text-align: left;">
+      <h3 class="modal-title" style="text-align: center; margin-bottom: 14px;">➕ Pair New Computer</h3>
+      
+      <div class="form-group">
+        <label class="form-label">Device Name:</label>
+        <input type="text" id="pair-name" class="form-input" placeholder="e.g. Sanjay PC, Office Rig">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">IP Address or Hostname:</label>
+        <input type="text" id="pair-ip" class="form-input" placeholder="e.g. 192.168.1.48 or pc.tailscale">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">MAC Address (Required for Turn On / WoL):</label>
+        <input type="text" id="pair-mac" class="form-input" placeholder="e.g. 28-D0-43-F0-87-2A or CC:28:AA:C9:12:77">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Agent Port (Default: 8001):</label>
+        <input type="number" id="pair-port" class="form-input" value="8001">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Agent Auth Token (Optional, for remote agent power control):</label>
+        <input type="password" id="pair-token" class="form-input" placeholder="Paste token generated by wakex_agent.py --pair">
+      </div>
+
+      <div class="modal-actions" style="margin-top: 20px;">
+        <button class="modal-btn cancel" onclick="closePairDeviceModal()">Cancel</button>
+        <button class="modal-btn confirm" style="background: var(--accent-green);" onclick="submitPairDevice()">Pair Device</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CREATE / EDIT WORKSPACE MODAL -->
+  <div id="workspace-modal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 580px; width: 94vw; max-height: 90vh; overflow-y: auto; text-align: left; padding: 22px;">
+      <h3 class="modal-title" id="ws-modal-title" style="text-align: center; margin-bottom: 14px;">➕ Create Workspace</h3>
+      <input type="hidden" id="ws-modal-id" value="">
+
+      <div class="form-group">
+        <label class="form-label">Workspace Name:</label>
+        <input type="text" id="ws-name" class="form-input" placeholder="e.g. Developer Shift, Gaming Setup, Morning Tasks">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Description (Optional):</label>
+        <input type="text" id="ws-desc" class="form-input" placeholder="e.g. Automatically starts IDE, Jira, and documentation tabs">
+      </div>
+
+      <!-- APPLICATIONS PICKER FROM START MENU -->
+      <div class="form-group" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; margin-bottom: 16px;">
+        <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+          <span>🖥️ Applications (From Windows Start Menu)</span>
+          <span id="ws-app-count-badge" style="font-size: 0.78rem; color: var(--accent-cyan); font-weight: 600;">0 selected</span>
+        </label>
+        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px;">
+          Choose any program installed in your PC's Start Menu:
+        </p>
+        
+        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+          <input type="text" id="ws-app-search" class="form-input" style="flex: 1;" placeholder="🔍 Filter Start Menu apps (e.g. VS Code, Chrome, Terminal)..." oninput="filterInstalledApps(this.value)">
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+          <select id="ws-app-select" class="form-input" style="flex: 1; background: var(--bg-primary); cursor: pointer;">
+            <option value="">-- Choose an application from Start Menu --</option>
+          </select>
+          <button type="button" class="btn-primary" style="padding: 8px 14px; font-size: 0.85rem;" onclick="addSelectedApp()">➕ Add</button>
+        </div>
+
+        <!-- Selected Apps List -->
+        <div id="ws-selected-apps" style="display: flex; flex-wrap: wrap; gap: 6px; min-height: 38px; padding: 8px; background: rgba(0,0,0,0.25); border-radius: 6px; border: 1px dashed var(--border-color);">
+          <span style="font-size: 0.8rem; color: var(--text-secondary); padding: 4px;">No applications added yet.</span>
+        </div>
+      </div>
+
+      <!-- BROWSER URLS -->
+      <div class="form-group" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; margin-bottom: 16px;">
+        <label class="form-label" style="display: flex; justify-content: space-between; align-items: center;">
+          <span>🌐 Browser Tabs / URLs</span>
+          <span id="ws-url-count-badge" style="font-size: 0.78rem; color: var(--accent-amber); font-weight: 600;">0 tabs</span>
+        </label>
+        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px;">
+          Websites to open automatically:
+        </p>
+
+        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+          <input type="url" id="ws-url-input" class="form-input" style="flex: 1;" placeholder="e.g. https://mail.google.com or github.com" onkeydown="if(event.key==='Enter'){event.preventDefault();addWorkspaceUrl();}">
+          <button type="button" class="btn-primary" style="padding: 8px 14px; font-size: 0.85rem;" onclick="addWorkspaceUrl()">➕ Add</button>
+        </div>
+
+        <!-- Selected URLs List -->
+        <div id="ws-selected-urls" style="display: flex; flex-direction: column; gap: 6px; min-height: 38px; padding: 8px; background: rgba(0,0,0,0.25); border-radius: 6px; border: 1px dashed var(--border-color);">
+          <span style="font-size: 0.8rem; color: var(--text-secondary); padding: 4px;">No URLs added yet.</span>
+        </div>
+      </div>
+
+      <!-- AUTO-LAUNCH SCHEDULE -->
+      <div class="form-group" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px; margin-bottom: 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <div>
+            <label class="form-label" style="margin-bottom: 0;">⏰ Scheduled Auto-Launch</label>
+            <p style="font-size: 0.8rem; color: var(--text-secondary);">Automatically trigger this workspace at a specific time</p>
+          </div>
+          <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="ws-sched-enabled" onchange="toggleScheduleFields(this.checked)" style="width: 20px; height: 20px; cursor: pointer;">
+            <span style="font-size: 0.85rem; font-weight: 600;">Enable</span>
+          </label>
+        </div>
+
+        <div id="ws-sched-panel" style="display: none; padding-top: 10px; border-top: 1px solid var(--border-color);">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+            <label style="font-size: 0.85rem; color: var(--text-secondary);">Launch Time (24h):</label>
+            <input type="time" id="ws-sched-time" class="form-input" style="width: 140px;" value="09:00">
+          </div>
+
+          <label style="font-size: 0.85rem; color: var(--text-secondary); display: block; margin-bottom: 8px;">Repeat on Days:</label>
+          <div id="ws-days-selector" style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button type="button" class="ws-day-btn active" data-day="Mon" onclick="toggleDayBtn(this)">Mon</button>
+            <button type="button" class="ws-day-btn active" data-day="Tue" onclick="toggleDayBtn(this)">Tue</button>
+            <button type="button" class="ws-day-btn active" data-day="Wed" onclick="toggleDayBtn(this)">Wed</button>
+            <button type="button" class="ws-day-btn active" data-day="Thu" onclick="toggleDayBtn(this)">Thu</button>
+            <button type="button" class="ws-day-btn active" data-day="Fri" onclick="toggleDayBtn(this)">Fri</button>
+            <button type="button" class="ws-day-btn" data-day="Sat" onclick="toggleDayBtn(this)">Sat</button>
+            <button type="button" class="ws-day-btn" data-day="Sun" onclick="toggleDayBtn(this)">Sun</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-actions" style="margin-top: 20px;">
+        <button class="modal-btn cancel" onclick="closeWorkspaceModal()">Cancel</button>
+        <button class="modal-btn confirm" style="background: var(--accent-amber); color: #080c14; font-weight: 700;" onclick="submitSaveWorkspace()">💾 Save Workspace</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- PAIRING CODE DISPLAY MODAL (FOR HOST PC TO SHOW CODE) -->
+  <div id="pairing-code-modal" class="modal-overlay">
+    <div class="modal-box" style="text-align: center; max-width: 440px;">
+      <div class="modal-icon">🔑</div>
+      <h3 class="modal-title">Pair Your Phone</h3>
+      <p class="modal-desc">Enter this 6-digit one-time code in your WakeX phone app:</p>
+      
+      <div id="pairing-code-display" style="font-size: 2.4rem; font-weight: 800; letter-spacing: 6px; color: var(--accent-cyan); padding: 16px; background: rgba(0,0,0,0.3); border-radius: 8px; margin: 16px 0; border: 1px dashed var(--accent-cyan);">
+        ------
+      </div>
+
+      <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 16px;">
+        Code is valid for 5 minutes. The phone will securely negotiate a 256-bit cryptographic key.
+      </p>
+
+      <div class="modal-actions" style="justify-content: center;">
+        <button class="modal-btn cancel" onclick="closePairingCodeModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHONE PAIRING INPUT MODAL (WHEN ACCESSED FROM PHONE REQUIRING PAIRING) -->
+  <div id="client-pair-modal" class="modal-overlay">
+    <div class="modal-box" style="text-align: center; max-width: 440px;">
+      <div class="modal-icon">📱</div>
+      <h3 class="modal-title">Pair with WakeX Hub</h3>
+      <p class="modal-desc">Enter the 6-digit pairing code shown on your PC:</p>
+      
+      <div class="form-group" style="margin: 16px 0;">
+        <input type="text" id="client-pair-code" class="form-input" style="font-size: 1.8rem; letter-spacing: 4px; text-align: center; font-weight: 700;" placeholder="000000" maxlength="6">
+      </div>
+
+      <div class="modal-actions" style="justify-content: center; gap: 10px;">
+        <button class="modal-btn confirm" style="background: var(--accent-green); width: 100%;" onclick="submitClientPairing()">🔒 Pair Device</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

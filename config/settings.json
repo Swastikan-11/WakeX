@@ -1,0 +1,24 @@
+{
+  "host": "0.0.0.0",
+  "port": 8000,
+  "configured": true,
+  "pin_protection_enabled": false,
+  "auto_launch_workspace_on_boot": true,
+  "boot_workspace_id": "work_shift",
+  "wake_schedule": {
+    "enabled": true,
+    "time": "08:50",
+    "days": [
+      "Mon",
+      "Tue",
+      "Wed",
+      "Thu",
+      "Fri"
+    ]
+  },
+  "remote_access": {
+    "method": "rustdesk",
+    "custom_url": "",
+    "notes": "Use RustDesk or Windows RDP via Tailscale for remote control."
+  }
+}

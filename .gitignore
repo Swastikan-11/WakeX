@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+.pytest_cache/
+
+# PyInstaller build artifacts
+build/
+dist/
+*.manifest
+*.spec.bak
+
+# Android build intermediate artifacts
+android_build/obj/
+*.dex
+WakeX.apk.idsig
+
+# Local logs & audits
+*.log
+wakex_hub.log
+wakex_audit.log
+
+# Local secrets & device pairings (Security First)
+config/paired_clients.json
+config/paired_clients.json.bak
+agent/agent_config.json
+agent/agent_config.json.bak
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Antigravity Scratch
+.gemini/
+
+# Unrelated temporary workspace assets
+LPC2148*
+extracted_assets/
+generated_assets/
+rendered_pages/

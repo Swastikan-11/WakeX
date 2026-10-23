@@ -1,0 +1,20 @@
+[Unit]
+Description=WakeX Remote Management Agent
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/wakex-agent
+ExecStart=/usr/bin/python3 /opt/wakex-agent/wakex_agent.py --port 8001
+Restart=always
+RestartSec=5s
+
+# Security hardening
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/opt/wakex-agent
+
+[Install]
+WantedBy=multi-user.target
