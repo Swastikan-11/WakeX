@@ -304,7 +304,9 @@ def test_windows_lock_workstation_dispatch(monkeypatch):
         assert res["status"] == "success"
         assert res["action"] == "lock"
         mock_run.assert_called_once()
-        assert "rundll32.exe user32.dll,LockWorkStation" in mock_run.call_args[0][0]
+        args = mock_run.call_args[0][0]
+        cmd_str = " ".join(args) if isinstance(args, list) else str(args)
+        assert "rundll32.exe" in cmd_str and "LockWorkStation" in cmd_str
 
 
 def test_cancel_shutdown(monkeypatch):
@@ -496,7 +498,7 @@ def test_agent_supported_actions():
 
 
 def test_agent_auth_verification_modes():
-    """Verify Agent handler authenticates direct tokens, HMAC signatures, and rejects invalid/replayed requests."""
+    """Verify Agent handler requires strict HMAC signatures and rejects unsigned tokens, replayed, and skewed requests."""
     handler = wakex_agent.WakeXAgentHandler.__new__(wakex_agent.WakeXAgentHandler)
     handler.client_address = ("192.168.1.100", 50221)
     handler.path = "/api/agent/power"
@@ -506,14 +508,14 @@ def test_agent_auth_verification_modes():
         "device_id": "dev_test_01"
     }
 
-    # 1. Direct device token test (success)
+    # 1. Unsigned raw token request MUST BE REJECTED (Bypass removed)
     handler.headers = {"X-WakeX-Device-Token": "secret_agent_token_abc123"}
     ok, err = handler._verify_auth(config, b"{}")
-    assert ok is True
-    assert err == ""
+    assert ok is False
+    assert "Missing cryptographic signature" in err
 
-    # 2. Invalid direct device token test (failure)
-    handler.headers = {"X-WakeX-Device-Token": "wrong_token"}
+    # 2. Completely missing headers (failure)
+    handler.headers = {}
     ok, err = handler._verify_auth(config, b"{}")
     assert ok is False
 
@@ -533,7 +535,7 @@ def test_agent_auth_verification_modes():
     ok, err = handler._verify_auth(config, body)
     assert ok is True
 
-    # 4. Replay attack with same nonce (failure)
+    # 4. Replay attack with duplicate nonce (failure)
     ok, err = handler._verify_auth(config, body)
     assert ok is False
     assert "Replay attack detected" in err
@@ -551,4 +553,15 @@ def test_agent_auth_verification_modes():
     ok, err = handler._verify_auth(config, body)
     assert ok is False
     assert "skewed" in err
+
+    # 6. Tampered signature (failure)
+    tampered_nonce = secrets.token_hex(8)
+    handler.headers = {
+        "X-WakeX-Signature": "0000000000000000000000000000000000000000000000000000000000000000",
+        "X-WakeX-Timestamp": ts,
+        "X-WakeX-Nonce": tampered_nonce
+    }
+    ok, err = handler._verify_auth(config, body)
+    assert ok is False
+    assert "Invalid cryptographic HMAC signature" in err
 

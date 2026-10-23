@@ -196,7 +196,9 @@ def launch_single_app(app_id_or_path: str) -> bool:
         except Exception:
             pass
         try:
-            subprocess.Popen(target, shell=True)
+            import shlex
+            cmd = shlex.split(target) if isinstance(target, str) else [target]
+            subprocess.Popen(cmd)
             return True
         except Exception as e:
             logger.error(f"Linux launch error for '{target}': {e}")

@@ -28,16 +28,16 @@ def enable_windows_wake_timers():
     try:
         # Enable RTC wake timers on AC
         subprocess.run(
-            "powercfg /SETACVALUEINDEX SCHEME_CURRENT SUB_SLEEP RTCWAKING 1",
-            shell=True, capture_output=True
+            ["powercfg", "/SETACVALUEINDEX", "SCHEME_CURRENT", "SUB_SLEEP", "RTCWAKING", "1"],
+            capture_output=True
         )
         # Enable RTC wake timers on DC (battery)
         subprocess.run(
-            "powercfg /SETDCVALUEINDEX SCHEME_CURRENT SUB_SLEEP RTCWAKING 1",
-            shell=True, capture_output=True
+            ["powercfg", "/SETDCVALUEINDEX", "SCHEME_CURRENT", "SUB_SLEEP", "RTCWAKING", "1"],
+            capture_output=True
         )
         # Apply active scheme
-        subprocess.run("powercfg /SETACTIVE SCHEME_CURRENT", shell=True, capture_output=True)
+        subprocess.run(["powercfg", "/SETACTIVE", "SCHEME_CURRENT"], capture_output=True)
         return True
     except Exception as e:
         logger.warning(f"Could not set powercfg wake timers: {e}")
@@ -53,7 +53,7 @@ def configure_wake_schedule(time_str: str, days: list[str], enabled: bool = True
     
     if not enabled:
         # Delete task if disabled
-        subprocess.run(f'schtasks /delete /tn "{TASK_NAME}" /f', shell=True, capture_output=True)
+        subprocess.run(["schtasks", "/delete", "/tn", TASK_NAME, "/f"], capture_output=True)
         return {"status": "success", "message": "Wake schedule disabled."}
 
     # Map day codes to PowerShell day names

@@ -80,7 +80,7 @@ def get_wol_readiness() -> Dict[str, Any]:
     # 2. Operating System Power States Check
     if CURRENT_OS == "windows":
         try:
-            res = subprocess.run("powercfg /availablesleepstates", shell=True, capture_output=True, text=True, timeout=5)
+            res = subprocess.run(["powercfg", "/availablesleepstates"], capture_output=True, text=True, timeout=5)
             out = res.stdout.lower()
             states = []
             if "s0 low power idle" in out:

@@ -206,9 +206,10 @@ def check_device_online(ip: str, port: int = 8000, timeout: float = 0.5) -> bool
     except Exception:
         # Fallback to single quick ping
         try:
-            param = "-n" if os_power.get_os_type() == "windows" else "-c"
-            wait_flag = "-w 400" if os_power.get_os_type() == "windows" else "-W 1"
-            res = subprocess.run(f"ping {param} 1 {wait_flag} {ip}", shell=True, capture_output=True)
+            if os_power.get_os_type() == "windows":
+                res = subprocess.run(["ping", "-n", "1", "-w", "400", ip], capture_output=True)
+            else:
+                res = subprocess.run(["ping", "-c", "1", "-W", "1", ip], capture_output=True)
             return res.returncode == 0
         except Exception:
             return False
