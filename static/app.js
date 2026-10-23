@@ -814,6 +814,19 @@ function renderDevicesView(devices) {
   if (!container) return;
 
   container.innerHTML = "";
+  if (!devices || devices.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state-card" style="grid-column: 1 / -1; text-align: center; padding: 48px 20px; background: rgba(0,0,0,0.25); border-radius: 12px; border: 1px dashed var(--border-color);">
+        <span style="font-size: 2.6rem; display: block; margin-bottom: 12px;">🖥️</span>
+        <h3 style="color: #fff; margin-bottom: 8px;">No Devices Configured</h3>
+        <p style="color: var(--text-secondary); font-size: 0.88rem; max-width: 440px; margin: 0 auto 16px;">
+          This PC Hub will automatically appear once initialized. You can also pair secondary PCs or Linux servers running the WakeX agent.
+        </p>
+        <button class="btn-primary" onclick="openPairDeviceModal()" style="min-height: 48px;">➕ Pair Secondary PC</button>
+      </div>
+    `;
+    return;
+  }
   devices.forEach(dev => {
     const card = document.createElement("div");
     card.className = "device-card";
@@ -1730,5 +1743,15 @@ function nextOnboardingStep(step) {
 function completeOnboarding() {
   localStorage.setItem("wakex_onboarded", "true");
   const modal = document.getElementById("onboarding-modal");
+  if (modal) modal.classList.remove("open");
+}
+
+function openAboutModal() {
+  const modal = document.getElementById("about-modal");
+  if (modal) modal.classList.add("open");
+}
+
+function closeAboutModal() {
+  const modal = document.getElementById("about-modal");
   if (modal) modal.classList.remove("open");
 }

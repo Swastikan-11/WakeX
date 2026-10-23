@@ -60,6 +60,9 @@
         <li class="nav-item" onclick="showOnboarding()" style="color: var(--accent-red); cursor: pointer;" role="button" aria-label="Open 3-Step Setup Guide">
           <span>🎓</span> Guided Tour
         </li>
+        <li class="nav-item" onclick="openAboutModal()" style="cursor: pointer;" role="button" aria-label="About WakeX and Hardware Help">
+          <span>ℹ️</span> About & Help
+        </li>
       </ul>
 
       <div class="sidebar-footer">
@@ -779,6 +782,51 @@
         </div>
       </div>
 
+    </div>
+  </div>
+
+
+  <!-- ABOUT & HONEST WOL LIMITS MODAL -->
+  <div id="about-modal" class="modal-overlay">
+    <div class="modal-box" style="max-width: 520px; text-align: left;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <img src="/static/icon.png" alt="WakeX" style="width: 32px; height: 32px; border-radius: 50%;">
+          <div>
+            <h3 class="modal-title" style="margin: 0; font-size: 1.2rem;">WakeX</h3>
+            <span style="font-size: 0.8rem; color: var(--accent-red); font-weight: 600;">v3.0.0 (Release Build)</span>
+          </div>
+        </div>
+        <button class="modal-btn cancel" onclick="closeAboutModal()" style="padding: 4px 10px; min-height: 36px;" aria-label="Close dialog">✕</button>
+      </div>
+
+      <div style="font-size: 0.88rem; line-height: 1.5; color: var(--text-secondary); margin-bottom: 16px;">
+        <p style="margin-bottom: 10px;">WakeX is a private, local-first PC power and workspace orchestration utility. Zero cloud servers, zero telemetry, zero accounts.</p>
+        
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+          <div style="color: #fff; font-weight: 600; margin-bottom: 6px;">📋 Build & Project Information</div>
+          <div>• <strong>Version:</strong> v3.0.0</div>
+          <div>• <strong>Build Date:</strong> October 2026</div>
+          <div>• <strong>License:</strong> Open Source (MIT)</div>
+          <div>• <strong>Repository:</strong> <a href="https://github.com/Swastikan-11/WakeX" target="_blank" rel="noopener" style="color: var(--accent-cyan); text-decoration: underline;">github.com/Swastikan-11/WakeX</a></div>
+        </div>
+
+        <div style="background: rgba(255,42,68,0.05); border-left: 3px solid var(--accent-red); border-radius: 6px; padding: 12px;">
+          <div style="color: #ff6b7e; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+            <span>⚠️</span> Physical Hardware WoL Limits (Honest Reality)
+          </div>
+          <ul style="padding-left: 18px; margin: 0; font-size: 0.82rem; line-height: 1.6;">
+            <li><strong>Ethernet (Cold Power-Off S5):</strong> Works 100% reliably when connected to AC power with motherboard BIOS/UEFI "Wake on LAN / PCIe Devices" enabled.</li>
+            <li><strong>Wi-Fi Wake (WoWLAN):</strong> Works while in <em>Sleep</em> or <em>Modern Standby (S0ix)</em> on AC power. True cold 0W power-off wake over Wi-Fi is physically impossible because Wi-Fi radio power drops to 0.</li>
+            <li><strong>Router AP Isolation:</strong> In your Wi-Fi router settings, disable "AP Isolation" or "Client Isolation", which prevents phones from reaching PCs on the local network.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="modal-actions" style="display: flex; gap: 8px;">
+        <button class="modal-btn cancel" onclick="showOnboarding(); closeAboutModal();" style="flex: 1; min-height: 48px;">🎓 Open Guided Tour</button>
+        <button class="modal-btn confirm" style="background: var(--accent-red); flex: 1; min-height: 48px;" onclick="closeAboutModal()">Close</button>
+      </div>
     </div>
   </div>
 

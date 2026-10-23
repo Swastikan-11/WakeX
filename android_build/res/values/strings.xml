@@ -1,8 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">WakeX</string>
+    <string name="app_description">Local-first workstation power control and Wake-on-LAN client</string>
     <string name="widget_wake_btn">⚡</string>
     <string name="widget_wake_label">Wake PC</string>
     <string name="widget_app_icon">💻</string>
     <string name="widget_app_label">WakeX Hub</string>
+    <string name="btn_turn_on">⚡ Turn On PC (Wake-on-LAN)</string>
+    <string name="btn_retry">🔄 Retry Connection</string>
+    <string name="btn_save_url">Save Hub URL</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="btn_confirm">Confirm</string>
+    <string name="hint_ip_address">e.g. 192.168.1.100:8000</string>
+    <string name="wol_sent_success">⚡ Turn On (Wake-on-LAN) sent from phone!</string>
+    <string name="cellular_warning">⚠️ Phone is on Cellular Data. Connect to your home Wi-Fi network to reach your PC.</string>
 </resources>
