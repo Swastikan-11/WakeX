@@ -99,7 +99,7 @@ class FakeHardwareBackend:
                 return {"status": "error", "error_code": "INVALID_GPU_MODE", "message": f"Unsupported GPU mode: {mode}"}
             self.dgpu_mode = mode
             self.gpu_sleeping = (mode == "eco")
-            return {"status": "ok", "dgpu_mode": self.dgpu_mode, "reboot_required": False}
+            return {"status": "ok", "dgpu_mode": self.dgpu_mode, "reboot_required": True}
 
         elif cmd == "GET_FAN_RPM":
             return {"status": "ok", "cpu_fan_rpm": self.cpu_fan_rpm, "gpu_fan_rpm": self.gpu_fan_rpm}

@@ -712,3 +712,86 @@ async def set_power_plan_endpoint(
     if res.get("status") == "error":
         raise HTTPException(status_code=400, detail=res.get("message"))
     return res
+
+
+# --- ASUS PRIVILEGED HARDWARE CONTROLS (PHASE E) ---
+
+@app.get("/api/asus/status")
+async def get_asus_status_endpoint(_: dict = Depends(security.require_permission("view"))):
+    """Returns ASUS hardware status: mode, battery charge limit, fans, keyboard lighting."""
+    from engine.hardware_ipc import send_hardware_command
+    res = send_hardware_command("GET_STATUS")
+    return res
+
+
+@app.post("/api/asus/operating-mode")
+async def set_operating_mode_endpoint(
+    payload: dict,
+    _: dict = Depends(security.require_permission("control"))
+):
+    """Sets ASUS operating mode: windows / silent / performance / turbo."""
+    from engine.hardware_ipc import send_hardware_command
+    mode = str(payload.get("mode", "")).lower()
+    res = send_hardware_command("SET_OPERATING_MODE", {"mode": mode})
+    if res.get("status") == "error":
+        raise HTTPException(status_code=400, detail=res.get("message"))
+    security.audit_logger.info(f"HARDWARE_CHANGE: Operating mode set to '{mode}'")
+    return res
+
+
+@app.post("/api/asus/battery-limit")
+async def set_battery_limit_endpoint(
+    payload: dict,
+    _: dict = Depends(security.require_permission("full"))
+):
+    """Sets ASUS battery charge threshold: 60%, 80%, or 100%."""
+    from engine.hardware_ipc import send_hardware_command
+    limit = int(payload.get("limit", 80))
+    res = send_hardware_command("SET_BATTERY_LIMIT", {"limit": limit})
+    if res.get("status") == "error":
+        raise HTTPException(status_code=400, detail=res.get("message"))
+    security.audit_logger.info(f"HARDWARE_CHANGE: Battery charge limit set to {limit}%")
+    return res
+
+
+@app.post("/api/asus/keyboard-brightness")
+async def set_keyboard_brightness_endpoint(
+    payload: dict,
+    _: dict = Depends(security.require_permission("control"))
+):
+    """Sets ASUS keyboard backlight brightness: 0, 1, 2, or 3."""
+    from engine.hardware_ipc import send_hardware_command
+    level = int(payload.get("level", 2))
+    res = send_hardware_command("SET_KEYBOARD_BRIGHTNESS", {"level": level})
+    if res.get("status") == "error":
+        raise HTTPException(status_code=400, detail=res.get("message"))
+    return res
+
+
+@app.post("/api/asus/fn-lock")
+async def set_fn_lock_endpoint(
+    payload: dict,
+    _: dict = Depends(security.require_permission("control"))
+):
+    """Toggles ASUS FN-Lock state."""
+    from engine.hardware_ipc import send_hardware_command
+    enabled = bool(payload.get("enabled", True))
+    res = send_hardware_command("SET_FN_LOCK", {"enabled": enabled})
+    if res.get("status") == "error":
+        raise HTTPException(status_code=400, detail=res.get("message"))
+    return res
+
+
+@app.post("/api/asus/gpu-mode")
+async def set_gpu_mode_endpoint(
+    payload: dict,
+    _: dict = Depends(security.require_permission("full"))
+):
+    """Sets GPU Mode: eco / standard / optimized. Requires full permission."""
+    from engine.hardware_ipc import send_hardware_command
+    mode = str(payload.get("mode", "")).lower()
+    res = send_hardware_command("SET_DGPU_MODE", {"mode": mode})
+    if res.get("status") == "error":
+        raise HTTPException(status_code=400, detail=res.get("message"))
+    security.audit_logger.warning(f"HARDWARE_CHANGE: GPU Mode switched to '{mode}' (Reboot required)")
+    return res
