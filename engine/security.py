@@ -17,7 +17,7 @@ import hashlib
 import hmac
 import logging
 from typing import Dict, Any, Optional, Tuple
-from fastapi import Request, HTTPException, Header
+from fastapi import Request, HTTPException, Header, Depends
 from engine.storage import safe_read_json, atomic_write_json
 
 from cryptography.hazmat.primitives.asymmetric import x25519
@@ -26,6 +26,12 @@ from cryptography.hazmat.primitives import hashes, serialization
 
 logger = logging.getLogger("WakeX.Security")
 audit_logger = logging.getLogger("WakeX.Audit")
+
+PERMISSION_HIERARCHY = {
+    "view": 1,
+    "control": 2,
+    "full": 3
+}
 
 CONFIG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config")
 CLIENTS_FILE = os.path.join(CONFIG_DIR, "paired_clients.json")
@@ -257,6 +263,7 @@ def authenticate_pairing_session(
         "client_id": cid,
         "name": session["client_name"],
         "secret": session["client_secret"],
+        "permission": session.get("permission", "control"),
         "created_at": time.time(),
         "last_seen": time.time()
     }
@@ -270,7 +277,7 @@ def authenticate_pairing_session(
     }, ""
 
 
-def register_paired_client(client_name: str, client_id: Optional[str] = None) -> Dict[str, str]:
+def register_paired_client(client_name: str, client_id: Optional[str] = None, permission: str = "control") -> Dict[str, str]:
     """Internal registration helper (used by local setup/testing)."""
     clients = get_paired_clients()
     cid = client_id or f"client_{secrets.token_hex(6)}"
@@ -280,6 +287,7 @@ def register_paired_client(client_name: str, client_id: Optional[str] = None) ->
         "client_id": cid,
         "name": client_name.strip() or "Mobile Device",
         "secret": secret,
+        "permission": permission if permission in PERMISSION_HIERARCHY else "control",
         "created_at": time.time(),
         "last_seen": time.time()
     }
@@ -385,8 +393,8 @@ async def verify_authenticated_request(
     # 1. Allow local host web browser session
     if client_ip in ("127.0.0.1", "::1", "localhost"):
         if x_wakex_local_token and hmac.compare_digest(x_wakex_local_token, LOCAL_SESSION_TOKEN):
-            return {"authenticated": True, "type": "local_session", "client_id": "localhost"}
-        return {"authenticated": True, "type": "local_host", "client_id": "localhost"}
+            return {"authenticated": True, "type": "local_session", "client_id": "localhost", "permission": "full"}
+        return {"authenticated": True, "type": "local_host", "client_id": "localhost", "permission": "full"}
 
     # 2. Remote / LAN request: check paired clients
     paired_clients = get_paired_clients()
@@ -464,7 +472,8 @@ async def verify_authenticated_request(
         "authenticated": True,
         "type": "paired_client",
         "client_id": x_wakex_client_id,
-        "client_name": client_info.get("name", "Unknown")
+        "client_name": client_info.get("name", "Unknown"),
+        "permission": client_info.get("permission", "control")
     }
 
 
@@ -485,3 +494,41 @@ def store_idempotency_result(idempotency_key: str, result: dict):
 
 def store_idempotent_result(idempotency_key: str, result: dict):
     store_idempotency_result(idempotency_key, result)
+
+
+def update_client_permission(client_id: str, permission: str) -> bool:
+    """Updates permission level for a paired device."""
+    perm = permission.lower()
+    if perm not in PERMISSION_HIERARCHY:
+        return False
+    clients = get_paired_clients()
+    if client_id in clients:
+        clients[client_id]["permission"] = perm
+        save_paired_clients(clients)
+        audit_logger.info(f"Updated permission for client '{client_id}' to '{perm}'")
+        return True
+    return False
+
+
+def require_permission(min_level: str):
+    """
+    FastAPI dependency enforcing granular permission levels:
+    - 'view': telemetry & read-only status
+    - 'control': operating modes, display, volume, brightness, apps, scenes
+    - 'full': power commands (sleep/restart/shutdown), GPU mode, battery limit, kill process
+    """
+    async def permission_dependency(auth: Dict[str, Any] = Depends(verify_authenticated_request)) -> Dict[str, Any]:
+        user_perm = auth.get("permission", "control").lower()
+        req_val = PERMISSION_HIERARCHY.get(min_level.lower(), 2)
+        user_val = PERMISSION_HIERARCHY.get(user_perm, 2)
+        if user_val < req_val:
+            audit_logger.warning(
+                f"Permission denied: Client '{auth.get('client_id')}' with '{user_perm}' privilege "
+                f"attempted action requiring '{min_level}' privilege"
+            )
+            raise HTTPException(
+                status_code=403,
+                detail=f"Insufficient permissions: Action requires '{min_level}' privilege, but client has '{user_perm}'."
+            )
+        return auth
+    return permission_dependency

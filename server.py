@@ -306,8 +306,30 @@ async def execute_device_power(
     - Enforces HMAC cryptographic verification and idempotency caching.
     """
     act = req.action.lower()
+    if act == "cancel_shutdown":
+        act = "abort"
     if act not in ["shutdown", "restart", "sleep", "hibernate", "lock", "unlock", "abort"]:
         raise HTTPException(status_code=400, detail=f"Unsupported power action '{act}'")
+
+    # Granular permission check
+    user_perm = auth_context.get("permission", "control").lower()
+    user_val = security.PERMISSION_HIERARCHY.get(user_perm, 2)
+    if act in ["shutdown", "restart", "hibernate"]:
+        if user_val < security.PERMISSION_HIERARCHY["full"]:
+            security.audit_logger.warning(
+                f"Permission denied: Client '{auth_context.get('client_id')}' with '{user_perm}' privilege "
+                f"attempted destructive power action '{act}'"
+            )
+            raise HTTPException(
+                status_code=403,
+                detail=f"Insufficient permissions: Action '{act}' requires 'full' privilege, but client has '{user_perm}'."
+            )
+    else:
+        if user_val < security.PERMISSION_HIERARCHY["control"]:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Insufficient permissions: Action '{act}' requires 'control' privilege, but client has '{user_perm}'."
+            )
 
     # Idempotency check using request nonce
     nonce = request.headers.get("X-WakeX-Nonce") or f"{device_id}_{act}_{int(time.time() // 5)}"
@@ -546,3 +568,24 @@ async def serve_index():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)
+
+
+@app.get("/api/capabilities")
+async def get_capabilities_endpoint(_: dict = Depends(security.require_permission("view"))):
+    """Dynamic system capabilities registry for Command Center controls."""
+    from engine.capabilities import get_system_capabilities
+    return get_system_capabilities()
+
+
+@app.put("/api/auth/paired-clients/{client_id}/permission")
+async def update_client_permission_endpoint(
+    client_id: str,
+    payload: dict,
+    _: dict = Depends(security.require_permission("full"))
+):
+    """Allows admin/full client to configure granular permission for a device."""
+    perm = payload.get("permission", "control")
+    success = security.update_client_permission(client_id, perm)
+    if not success:
+        raise HTTPException(status_code=400, detail="Invalid client ID or permission level.")
+    return {"status": "ok", "client_id": client_id, "permission": perm}
