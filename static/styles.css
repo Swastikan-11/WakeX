@@ -1386,3 +1386,295 @@ body.light-theme .brand-title {
   border-color: var(--accent-red);
   transform: translateY(-1px);
 }
+
+/* ==========================================================================
+   WAKEX COMMAND CENTER v4.0.0 DESIGN SYSTEM (PHASE B)
+   Stealth Black (#050508) + Neon Red (#ff2a44) + Original Chamfered Accents
+   ========================================================================== */
+
+/* Original Diamond Section Marker */
+.section-marker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.75rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-red);
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.section-marker::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  background: var(--accent-red);
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+  box-shadow: 0 0 8px var(--accent-red-glow);
+}
+
+/* Original Chamfered Card with Glowing Bottom Accent */
+.chamfer-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  clip-path: polygon(
+    0% 0%,
+    calc(100% - 14px) 0%,
+    100% 14px,
+    100% 100%,
+    0% 100%
+  );
+  padding: 20px;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.chamfer-card.active, .chamfer-card:hover {
+  border-color: rgba(255, 42, 68, 0.4);
+  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.5);
+}
+
+.chamfer-card::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 14px;
+  right: 14px;
+  height: 2px;
+  background: transparent;
+  transition: background 0.25s, box-shadow 0.25s;
+}
+
+.chamfer-card.active::after {
+  background: var(--accent-red);
+  box-shadow: 0 0 10px var(--accent-red);
+}
+
+/* 4-Segment Operating Mode Selector */
+.mode-selector-wrap {
+  margin-bottom: 24px;
+}
+
+.mode-selector {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.mode-segment {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 8px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+  min-height: 48px;
+}
+
+.mode-segment:hover {
+  color: var(--text-primary);
+  background: var(--bg-card);
+}
+
+.mode-segment.active {
+  background: var(--bg-card);
+  color: var(--accent-red);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+
+.mode-segment.active::after {
+  content: "";
+  position: absolute;
+  bottom: 4px;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  background: var(--accent-red);
+  box-shadow: 0 0 8px var(--accent-red);
+  border-radius: 2px;
+}
+
+/* Round SVG Gauges */
+.gauge-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  position: relative;
+}
+
+.gauge-svg {
+  width: 120px;
+  height: 120px;
+  transform: rotate(-90deg);
+}
+
+.gauge-bg {
+  fill: none;
+  stroke: var(--border-color);
+  stroke-width: 8;
+}
+
+.gauge-fill {
+  fill: none;
+  stroke: var(--accent-red);
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-dasharray: 314;
+  stroke-dashoffset: 210;
+  transition: stroke-dashoffset 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  filter: drop-shadow(0 0 6px var(--accent-red-glow));
+}
+
+.gauge-value-overlay {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.gauge-number {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.gauge-unit {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  letter-spacing: 0.08em;
+}
+
+/* Label/Value Rows with Slim Underline Meters */
+.metric-row {
+  margin-bottom: 12px;
+}
+
+.metric-row:last-child {
+  margin-bottom: 0;
+}
+
+.metric-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  margin-bottom: 4px;
+}
+
+.metric-label {
+  color: var(--text-secondary);
+}
+
+.metric-val {
+  color: var(--text-primary);
+  font-weight: 600;
+  font-feature-settings: "tnum";
+}
+
+.metric-bar {
+  height: 3px;
+  background: var(--border-color);
+  border-radius: 2px;
+  overflow: hidden;
+  position: relative;
+}
+
+.metric-bar-fill {
+  height: 100%;
+  background: var(--accent-red);
+  border-radius: 2px;
+  box-shadow: 0 0 6px var(--accent-red-glow);
+  transition: width 0.4s ease;
+}
+
+.metric-bar-fill.cyan {
+  background: #ff4d66;
+  box-shadow: 0 0 6px rgba(255, 77, 102, 0.3);
+}
+
+/* Sub-Tabs Bar */
+.sub-tabs-bar {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 12px;
+  margin-bottom: 24px;
+  overflow-x: auto;
+}
+
+.sub-tab-btn {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 48px;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.sub-tab-btn.active, .sub-tab-btn:hover {
+  background: var(--bg-card);
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+}
+
+/* Pill Selection Groups */
+.pill-group {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  background: var(--bg-secondary);
+  padding: 4px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.pill-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  min-height: 48px;
+  transition: all 0.2s;
+}
+
+.pill-btn.active {
+  background: var(--bg-card);
+  color: var(--accent-red);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Hardware Conflict / Advisory Banner */
+.conflict-banner {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 0.85rem;
+  color: #fbbf24;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
