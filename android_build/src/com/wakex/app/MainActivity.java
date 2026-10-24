@@ -215,12 +215,32 @@ public class MainActivity extends Activity {
         // JavaScript Interface for Native Wake-on-LAN and Credential Sync
         webView.addJavascriptInterface(new Object() {
             @JavascriptInterface
-            public void sendWoL(String mac) {
-                String savedMacs = prefs.getString(PREF_KEY_DEVICE_MACS, "00-11-22-33-44-55,00-AA-BB-CC-DD-EE");
-                String[] macList = (mac != null && !mac.isEmpty()) 
-                    ? new String[]{mac, "00-11-22-33-44-55", "00-AA-BB-CC-DD-EE"} 
-                    : savedMacs.split(",");
+            public boolean isWifi() {
+                return isConnectedToWifi();
+            }
+
+            @JavascriptInterface
+            public boolean sendWoL(String mac) {
+                if (!isConnectedToWifi()) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(MainActivity.this, "\u26A0\uFE0F Connect to your home Wi-Fi to send local Wake-on-LAN packets (currently on Cellular/Mobile data).", Toast.LENGTH_LONG).show();
+                        }
+                    });
+                    return false;
+                }
+                String savedMacs = prefs.getString(PREF_KEY_DEVICE_MACS, "");
+                String[] macList;
+                if (mac != null && !mac.trim().isEmpty()) {
+                    macList = new String[]{mac.trim()};
+                } else if (!savedMacs.isEmpty()) {
+                    macList = savedMacs.split(",");
+                } else {
+                    return false;
+                }
                 sendWakeOnLan(macList);
+                return true;
             }
 
             @JavascriptInterface

@@ -895,10 +895,16 @@ async function wakeDevice(devId) {
   const btn = document.getElementById("btn-dashboard-turnon");
   if (btn) btn.innerHTML = `<span>⏳</span> Waking...`;
 
-  // If running inside native Android App, also broadcast directly from phone's Wi-Fi interface
+  let nativeSent = false;
+  // If running inside native Android App, broadcast directly from phone's Wi-Fi interface!
   if (window.AndroidWakeX && typeof window.AndroidWakeX.sendWoL === "function") {
     try {
-      window.AndroidWakeX.sendWoL(dev ? (dev.mac || "") : "");
+      if (typeof window.AndroidWakeX.isWifi === "function" && !window.AndroidWakeX.isWifi()) {
+        alert(`⚠️ [Wi-Fi Required]\n\nYour phone is currently connected via Mobile/Cellular Data (5G/4G).\n\nWake-on-LAN packets are local network broadcasts and cannot reach your PC over mobile carrier data. Please connect your phone to the same Wi-Fi network as your PC.`);
+        if (btn) btn.innerHTML = `<span>⚡</span> Turn On PC`;
+        return;
+      }
+      nativeSent = window.AndroidWakeX.sendWoL(dev ? (dev.mac || "") : "");
     } catch (err) {
       console.warn("Android native WoL call:", err);
     }
@@ -906,18 +912,33 @@ async function wakeDevice(devId) {
 
   try {
     const res = await apiFetch(`/api/devices/${devId}/wake`, {
-      method: "POST"
+      method: "POST",
+      timeoutMs: 4000
     });
 
     const data = await res.json();
     
     if (res.ok) {
       alert(`⚡ [TURN ON SIGNAL SENT]\n\nBroadcasted Wake-on-LAN Magic Packet to '${devName}'.\n\nTarget will power on if connected to AC or supported standby.`);
-    } else {
+      return;
+    } else if (!nativeSent) {
       alert(`❌ Error sending Wake signal: ${data.detail || data.message}`);
+      return;
     }
   } catch (e) {
-    alert(`❌ Failed to send wake packet: ${e.message}`);
+    if (nativeSent) {
+      alert(`⚡ [TURN ON SIGNAL BROADCASTED]\n\nWake-on-LAN Magic Packet was sent directly from your phone to '${devName}' (${dev ? (dev.mac || "registered MAC") : "MAC"}).\n\n(Host Hub is currently offline, which is expected when the PC is shut down).`);
+      return;
+    }
+
+    const isCellular = (navigator.connection && (navigator.connection.type === "cellular" || navigator.connection.effectiveType === "4g" || navigator.connection.effectiveType === "5g"));
+    let fixHint = "";
+    if (isCellular || !navigator.onLine) {
+      fixHint = "\n\n⚠️ Note: You appear to be on Mobile Data (5G/4G). Wake-on-LAN packets cannot cross the public cellular network into your private home Wi-Fi.";
+    } else {
+      fixHint = "\n\n💡 Note: If your PC is shut down, web browsers cannot send raw hardware wake packets without the native Android app. Please open WakeX in the Android app on the same Wi-Fi.";
+    }
+    alert(`❌ Failed to send wake packet: ${e.message}${fixHint}`);
   } finally {
     if (btn) btn.innerHTML = `<span>⚡</span> Turn On PC`;
     setTimeout(loadDevices, 4000);
