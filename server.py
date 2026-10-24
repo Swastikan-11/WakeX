@@ -71,7 +71,7 @@ async def run_workspace_scheduler():
         await asyncio.sleep(20)
 
 
-app = FastAPI(title="WakeX Hub", version="3.0.0", lifespan=lifespan)
+app = FastAPI(title="WakeX Hub", version="4.0.0", lifespan=lifespan)
 
 
 # --- Models ---

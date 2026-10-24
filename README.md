@@ -1,7 +1,36 @@
-# WakeX v3.0.0
-### Secure, Local-First Multi-Device PC Remote Power & Orchestration Platform
+# WakeX v4.0.0 — PC Command Center
+### Secure, Local-First PC Remote Power, Hardware Controller & Gaming Command Center
 
-WakeX is a software-only, local-first remote power management and workspace orchestration suite engineered for Windows PCs and secondary Linux workstations, with companion native Android mobile app support.
+WakeX is a software-only, local-first remote power management, hardware controller, and gaming command center suite engineered for Windows gaming laptops/workstations and secondary Linux workstations, with companion native Android mobile app support.
+
+---
+
+## 🎮 What's New in v4.0.0: Command Center Edition
+
+1. **PC Command Center & Gaming Dashboard:**
+   - **Hero PC Card:** Live machine identity (CPU, dGPU, RAM, active IP) with glowing hardware status badges.
+   - **Operating Mode Row:** Instant 4-segment toggle between **Windows** (hands control back to OS), **Silent**, **Performance**, and **Turbo**.
+   - **Live Hardware Telemetry:** Circular SVG load/temperature gauges for CPU & GPU, underline meters for RAM and disk usage, plus a rolling 60-second telemetry history chart.
+   - **dGPU Sleep Safety Guard:** Automatically detects when the dedicated GPU is in D3Cold sleep; reports "Power Saving" without waking the PCIe bus or wasting laptop battery.
+
+2. **Remote Windows Hardware Controls:**
+   - **Display Refresh Rate:** Remote switching between native refresh rates (e.g. 60Hz and 144Hz) via Win32 `ChangeDisplaySettingsExW` without elevation.
+   - **Display Backlight & Screen Off:** Smooth brightness slider (0–100%) and instant low-power screen shutoff (`SC_MONITORPOWER`).
+   - **Master Audio & Mic Mute:** Endpoint volume slider, speaker mute toggle, and system-wide microphone mute toggle.
+   - **Media Transport:** Remote Play/Pause, Next Track, and Previous Track media controls.
+   - **Windows Power Schemes:** Balanced, High Performance, and Power Saver profiles.
+
+3. **ASUS Privileged Controls (Elevated Hardware Helper):**
+   - Direct control for ASUS gaming laptops: Operating Modes, GPU Mode (Eco / Standard MUX toggle), Battery Charge Limit (80% / 100%), Keyboard Backlight levels (Off/Low/Med/High), and FN-Lock.
+   - Secured via a local-only Windows Named Pipe (`\\.\pipe\WakeX_Hardware_Helper_IPC`) with strict random token authentication and action allowlists. Zero network listeners on the helper.
+   - Clean-room implementation referencing standard ACPI WMI interfaces (`root\wmi\AsusAtkWmi_WMNB`); zero GPL code used.
+
+4. **WakeX Automation Scenes:**
+   - One-tap multi-action profiles: **Game Mode**, **Quiet / Study**, **Battery Saver**, and **Step Away**.
+   - Custom scene creation with persistent local configuration (`config/scenes.json`).
+
+5. **Granular Permission Hierarchy:**
+   - Three role levels: `view` (read-only telemetry observer), `control` (hardware and media controls), and `full` (destructive power commands and scene management).
 
 ---
 
@@ -57,7 +86,7 @@ WakeX is a software-only, local-first remote power management and workspace orch
    - Cyberpunk Neon Red / OLED Stealth Black theme and high-contrast Light Theme with 1-tap toggle.
    - WCAG AA compliant with minimum 48×48px touch targets.
    - Interactive 3-Step Guided Tour for first-time network setup, cryptographic pairing, and wake nuances.
-   - In-app "About & Help" dialog displaying version v3.0.0, build date, MIT license, and physical hardware limits.
+   - In-app "About & Help" dialog displaying version v4.0.0, build date, MIT license, and physical hardware limits.
 
 7. **📱 Android Companion (`WakeX.apk`), App Widget & QS Tile:**
    - Native Java client compiled for Target SDK 35 (Android 15) and Min SDK 26.

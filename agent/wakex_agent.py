@@ -24,7 +24,7 @@ logger = logging.getLogger("WakeX.Agent")
 
 AGENT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(AGENT_DIR, "agent_config.json")
-VERSION = "3.0.0"
+VERSION = "4.0.0"
 CURRENT_OS = platform.system().lower()
 
 # Security state

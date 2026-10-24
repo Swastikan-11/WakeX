@@ -38,12 +38,15 @@ config/devices.json
 config/devices.json.bak
 config/workspaces.json
 config/workspaces.json.bak
+config/scenes.json
+config/scenes.json.bak
 config/paired_clients.json
 config/paired_clients.json.bak
 config/seen_nonces.json
 agent/agent_config.json
 agent/agent_config.json.bak
 agent/seen_nonces.json
+*.bak
 
 # Local logs & audits
 *.log

@@ -153,3 +153,32 @@ A comprehensive testing and verification manual covering all **6 core actions** 
   - Verify both phone and PC are connected to the same Wi-Fi SSID / local subnet (e.g. `192.168.1.x`).
   - Check Windows Defender Firewall rule for port 8000 (TCP) and 8002 (UDP).
   - Tap the IP display in the mobile app to initiate automatic subnet scan and re-binding.
+
+---
+
+## 6. Command Center & Hardware Verification (v4.0.0)
+
+Verification of live hardware telemetry, Windows system controls, ASUS privileged controls (via elevated Hardware Helper IPC), and WakeX Scenes.
+
+| Control Category | Specific Action / Metric | Target OS / Hardware | Expected Behavior | Verification Status | Notes |
+| :--- | :--- | :--- | :--- | :---: | :--- |
+| **Telemetry** | CPU Usage & Temp | Windows 10/11 | Real-time gauge updates via WMI/psutil | `[ ] PENDING` | Shows "unavailable" if sensor missing |
+| **Telemetry** | RAM & Disk Usage | Windows 10/11 | Live used / total GB meters | `[ ] PENDING` | Pure psutil, non-blocking |
+| **Telemetry** | dGPU Power-Saving | Windows (dGPU) | Reports "Power Saving" in D3Cold without waking PCIe bus | `[ ] PENDING` | Zero battery drain when asleep |
+| **Operating Mode**| Silent / Performance / Turbo | ASUS Gaming Laptops | Applies thermal policy via `AsusAtkWmi_WMNB` (0x00120075) | `[ ] PENDING` | Windows mode hands control to OS |
+| **GPU Mode** | Eco / Standard | ASUS Gaming Laptops | Toggles MUX / dGPU state (0x00090020) | `[ ] PENDING` | Prompts reboot notification if required |
+| **Display** | Refresh Rate (60Hz / 144Hz)| Windows 10/11 | Switches active monitor refresh rate via Win32 `ChangeDisplaySettingsExW` | `[ ] PENDING` | No elevation required |
+| **Display** | Brightness (0-100%) | Windows 10/11 | Adjusts internal panel brightness via WMI `WmiMonitorBrightnessMethods` | `[ ] PENDING` | Internal laptop panels |
+| **Display** | Screen Off | Windows 10/11 | Win32 `SC_MONITORPOWER (2)` low-power state | `[ ] PENDING` | Wakes on mouse move or unlock command |
+| **Audio** | Master Volume & Mute | Windows 10/11 | Sets endpoint volume or mutes speaker output | `[ ] PENDING` | Immediate feedback in UI |
+| **Audio** | Mic Mute Toggle | Windows 10/11 | Win32 `VK_VOLUME_MUTE` / mic mute virtual key | `[ ] PENDING` | Visual mute indicator |
+| **Media** | Play/Pause / Next / Prev | Windows 10/11 | Sends multimedia virtual keystrokes | `[ ] PENDING` | Controls Spotify, YouTube, etc. |
+| **Battery** | Charge Limit (80% / 100%) | ASUS Gaming Laptops | Sets battery threshold via `AsusAtkWmi_WMNB` (0x00120057) | `[ ] PENDING` | Protects battery health on AC power |
+| **Keyboard** | Backlight Brightness | ASUS Gaming Laptops | Toggles Off / Low / Med / High (0x00110013) | `[ ] PENDING` | Aura lighting bus |
+| **Scenes** | Game Mode | All supported PCs | Turbo mode + 144Hz + 85% brightness + high perf plan | `[ ] PENDING` | One-tap atomic application |
+| **Scenes** | Quiet / Study | All supported PCs | Silent mode + 60Hz + 50% brightness + power saver plan | `[ ] PENDING` | One-tap atomic application |
+| **Scenes** | Battery Saver | All supported PCs | Silent mode + Eco GPU + 60Hz + 30% brightness | `[ ] PENDING` | Preserves battery when unplugged |
+| **Scenes** | Step Away | All supported PCs | Locks workstation + powers off display + mutes volume | `[ ] PENDING` | Instant privacy & power saving |
+| **Safety** | Permission Level Check | Hub API | `view` clients cannot change hardware; `control` required | `[ ] PENDING` | Tested in `test_negative_security.py` |
+| **Conflict** | Armoury Crate / G-Helper | Windows 10/11 | Displays informative non-intrusive advisory banner | `[ ] PENDING` | Tested in `capabilities.py` |
+

@@ -26,5 +26,6 @@ Concepts and network patterns in WakeX were informed by open-source remote contr
 * **KDE Connect** (GPLv2+) — Local-first device pairing and network discovery concepts.
 * **HASS.Agent** (MIT) — Windows desktop telemetry collection and power state monitoring patterns.
 * **Duorem / ShutApp** (GPL) — Target device isolation and Wake-on-LAN broadcast burst structures.
+* **G-Helper** (GPLv3) — Referenced conceptually for standard ASUS WMI ACPI interface definitions (`AsusAtkWmi_WMNB`) and thermal policy parameters. Zero source code, algorithms, or assets were copied or translated; all WakeX implementations are written cleanly from scratch in Python and native Win32 APIs under the MIT License.
 
 *Note: All code in WakeX was written cleanly and independently to guarantee complete license compliance and zero third-party license conflicts.*

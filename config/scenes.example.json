@@ -1,0 +1,56 @@
+[
+  {
+    "id": "scene_game",
+    "name": "Game Mode",
+    "icon": "🎮",
+    "description": "Turbo cooling, 144Hz refresh rate, high performance power scheme, and 85% brightness.",
+    "actions": {
+      "operating_mode": "turbo",
+      "refresh_rate": 144,
+      "brightness": 85,
+      "volume": 75,
+      "power_plan": "high_performance"
+    },
+    "is_builtin": true
+  },
+  {
+    "id": "scene_quiet",
+    "name": "Quiet / Study",
+    "icon": "🤫",
+    "description": "Silent acoustics, 60Hz display, balanced power scheme, and 50% brightness.",
+    "actions": {
+      "operating_mode": "silent",
+      "refresh_rate": 60,
+      "brightness": 50,
+      "volume": 35,
+      "power_plan": "power_saver"
+    },
+    "is_builtin": true
+  },
+  {
+    "id": "scene_battery",
+    "name": "Battery Saver",
+    "icon": "🔋",
+    "description": "Silent fans, Eco GPU mode, 60Hz display, 30% brightness, and power saver scheme.",
+    "actions": {
+      "operating_mode": "silent",
+      "gpu_mode": "eco",
+      "refresh_rate": 60,
+      "brightness": 30,
+      "power_plan": "power_saver"
+    },
+    "is_builtin": true
+  },
+  {
+    "id": "scene_away",
+    "name": "Step Away",
+    "icon": "🔒",
+    "description": "Immediately locks session, turns off displays, and mutes audio.",
+    "actions": {
+      "power_action": "lock",
+      "display_off": true,
+      "volume_mute": true
+    },
+    "is_builtin": true
+  }
+]
