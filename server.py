@@ -565,9 +565,6 @@ async def serve_index():
     return {"message": "WakeX Hub Backend is running. Static files missing."}
 
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)
 
 
 @app.get("/api/capabilities")
@@ -844,3 +841,8 @@ async def delete_scene_endpoint(
     if not success:
         raise HTTPException(status_code=400, detail="Cannot delete built-in scene or scene not found.")
     return {"status": "ok", "deleted": scene_id}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=False)

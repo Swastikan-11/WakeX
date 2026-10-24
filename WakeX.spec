@@ -26,12 +26,7 @@ a = Analysis(
         'engine.telemetry',
         'engine.scenes',
         'engine.readiness',
-        'psutil',
-        'win32gui',
-        'win32con',
-        'win32api',
-        'win32process',
-        'win32event'
+        'psutil'
     ],
     hookspath=[],
     hooksconfig={},
