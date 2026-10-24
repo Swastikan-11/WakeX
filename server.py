@@ -589,3 +589,126 @@ async def update_client_permission_endpoint(
     if not success:
         raise HTTPException(status_code=400, detail="Invalid client ID or permission level.")
     return {"status": "ok", "client_id": client_id, "permission": perm}
+
+
+# --- COMMAND CENTER HARDWARE & GENERIC CONTROLS (PHASE D) ---
+
+@app.get("/api/telemetry/live")
+async def get_live_usage_endpoint(
+    keep_gpu_awake: bool = False,
+    _: dict = Depends(security.require_permission("view"))
+):
+    """Returns real-time hardware status snapshot with safe GPU-asleep handling."""
+    from engine.telemetry import get_live_system_usage
+    return get_live_system_usage(keep_gpu_awake=keep_gpu_awake)
+
+
+@app.get("/api/monitor/history")
+async def get_monitor_history_endpoint(_: dict = Depends(security.require_permission("view"))):
+    """Returns 60-second rolling telemetry buffer for live charts."""
+    from engine.telemetry import get_monitor_history
+    return {"status": "ok", "history": get_monitor_history()}
+
+
+@app.get("/api/system/display/refresh-rate")
+async def get_display_refresh_rate(_: dict = Depends(security.require_permission("view"))):
+    from engine.windows_controls import get_refresh_rate
+    return get_refresh_rate()
+
+
+@app.post("/api/system/display/refresh-rate")
+async def set_display_refresh_rate(
+    payload: dict,
+    _: dict = Depends(security.require_permission("control"))
+):
+    from engine.windows_controls import set_refresh_rate
+    rate = int(payload.get("rate", 60))
+    res = set_refresh_rate(rate)
+    if res.get("status") == "error":
+        raise HTTPException(status_code=400, detail=res.get("message"))
+    return res
+
+
+@app.get("/api/system/display/brightness")
+async def get_brightness_endpoint(_: dict = Depends(security.require_permission("view"))):
+    from engine.windows_controls import get_screen_brightness
+    return get_screen_brightness()
+
+
+@app.post("/api/system/display/brightness")
+async def set_brightness_endpoint(
+    payload: dict,
+    _: dict = Depends(security.require_permission("control"))
+):
+    from engine.windows_controls import set_screen_brightness
+    val = int(payload.get("brightness", 80))
+    res = set_screen_brightness(val)
+    if res.get("status") == "error":
+        raise HTTPException(status_code=400, detail=res.get("message"))
+    return res
+
+
+@app.post("/api/system/display/off")
+async def display_off_endpoint(_: dict = Depends(security.require_permission("control"))):
+    from engine.windows_controls import turn_off_display
+    return turn_off_display()
+
+
+@app.get("/api/system/audio")
+async def get_audio_endpoint(_: dict = Depends(security.require_permission("view"))):
+    from engine.windows_controls import get_audio_state
+    return get_audio_state()
+
+
+@app.post("/api/system/audio/volume")
+async def set_volume_endpoint(
+    payload: dict,
+    _: dict = Depends(security.require_permission("control"))
+):
+    from engine.windows_controls import set_master_volume_percent
+    lvl = int(payload.get("volume", 50))
+    return set_master_volume_percent(lvl)
+
+
+@app.post("/api/system/audio/mute")
+async def toggle_audio_mute_endpoint(_: dict = Depends(security.require_permission("control"))):
+    from engine.windows_controls import toggle_audio_mute
+    return toggle_audio_mute()
+
+
+@app.post("/api/system/audio/mic-mute")
+async def toggle_mic_mute_endpoint(_: dict = Depends(security.require_permission("control"))):
+    from engine.windows_controls import toggle_mic_mute
+    return toggle_mic_mute()
+
+
+@app.post("/api/system/media")
+async def media_control_endpoint(
+    payload: dict,
+    _: dict = Depends(security.require_permission("control"))
+):
+    from engine.windows_controls import send_media_command
+    act = str(payload.get("action", ""))
+    res = send_media_command(act)
+    if res.get("status") == "error":
+        raise HTTPException(status_code=400, detail=res.get("message"))
+    return res
+
+
+@app.get("/api/system/power-plan")
+async def get_power_plan_endpoint(_: dict = Depends(security.require_permission("view"))):
+    from engine.windows_controls import get_active_power_plan
+    return get_active_power_plan()
+
+
+@app.post("/api/system/power-plan")
+async def set_power_plan_endpoint(
+    payload: dict,
+    _: dict = Depends(security.require_permission("control"))
+):
+    from engine.windows_controls import set_active_power_plan
+    plan = str(payload.get("plan", "balanced"))
+    res = set_active_power_plan(plan)
+    if res.get("status") == "error":
+        raise HTTPException(status_code=400, detail=res.get("message"))
+    return res
