@@ -110,6 +110,20 @@ def get_wol_readiness() -> Dict[str, Any]:
         except Exception as e:
             logger.warning(f"Sleep states query error: {e}")
 
+        # Check for Armoury Crate / ASUS Modern Standby conflicts
+        try:
+            import psutil
+            ac_detected = any('armourycrate' in (p.info['name'] or '').lower() for p in psutil.process_iter(['name']))
+            if ac_detected and any("Modern Standby" in s for s in report.get("sleep_states", [])):
+                report["checks"].append({
+                    "name": "Armoury Crate Modern Standby Advisory",
+                    "status": "warning",
+                    "detail": "Modern Standby (S0ix) is active with ASUS Armoury Crate background telemetry services running.",
+                    "fix": "Armoury Crate background services may periodically wake the laptop during sleep. If battery drains while sleeping, consider disabling network standby or using G-Helper."
+                })
+        except Exception:
+            pass
+
         # 3. Fast Startup Registry Check
         try:
             ps_cmd = "Get-ItemPropertyValue -Path 'HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Session Manager\\Power' -Name 'HiberbootEnabled' -ErrorAction SilentlyContinue"

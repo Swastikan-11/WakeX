@@ -37,7 +37,13 @@
 
       <ul class="nav-menu">
         <li class="nav-item active" data-target="view-dashboard">
-          <span>📊</span> Dashboard
+          <span>⚡</span> Home / Rig
+        </li>
+        <li class="nav-item" data-target="view-control">
+          <span>🎛️</span> Hardware Controls
+        </li>
+        <li class="nav-item" data-target="view-scenes">
+          <span>🎯</span> Apps & Scenes
         </li>
         <li class="nav-item" data-target="view-devices">
           <span>🖥️</span> Paired Devices
@@ -92,6 +98,109 @@
         <div class="section-header">
           <h1 class="section-title">Workstation Command Center</h1>
           <p class="section-desc">Remote power, target-isolated multi-device wake, and workspace orchestrator.</p>
+        </div>
+
+        <!-- HARDWARE CONFLICT & HELPER ADVISORY BANNER -->
+        <div id="hw-advisory-banner" class="conflict-banner" style="display: none;">
+          <span id="hw-advisory-text">⚠️ <strong>Hardware Advisory:</strong> Synchronizing hardware controls.</span>
+          <span style="font-size: 0.75rem; text-decoration: underline; cursor: pointer;" onclick="openAboutModal()">Learn more</span>
+        </div>
+
+        <!-- 4-SEGMENT OPERATING MODE SELECTOR -->
+        <div class="mode-selector-wrap" id="mode-selector-container">
+          <div class="section-marker">OPERATING MODE</div>
+          <div class="mode-selector" id="operating-mode-deck">
+            <button class="mode-segment" data-mode="windows" onclick="selectOperatingMode('windows')">Windows</button>
+            <button class="mode-segment" data-mode="silent" onclick="selectOperatingMode('silent')">Silent</button>
+            <button class="mode-segment active" data-mode="performance" onclick="selectOperatingMode('performance')">Performance</button>
+            <button class="mode-segment" data-mode="turbo" onclick="selectOperatingMode('turbo')">Turbo</button>
+          </div>
+        </div>
+
+        <!-- LIVE SYSTEM USAGE & GAUGES GRID -->
+        <div class="section-marker">LIVE TELEMETRY & HARDWARE METRICS</div>
+        <div class="system-usage-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; margin-bottom: 24px;">
+          
+          <!-- CPU Card -->
+          <div class="chamfer-card active">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+              <strong style="font-size: 0.95rem;">⚙️ Processor (CPU)</strong>
+              <span id="cpu-cores-pill" class="card-status-pill">12 Threads</span>
+            </div>
+            <div class="gauge-container">
+              <svg class="gauge-svg" viewBox="0 0 120 120">
+                <circle class="gauge-bg" cx="60" cy="60" r="50"></circle>
+                <circle id="cpu-gauge-fill" class="gauge-fill" cx="60" cy="60" r="50" style="stroke-dashoffset: 235;"></circle>
+              </svg>
+              <div class="gauge-value-overlay">
+                <span class="gauge-number" id="cpu-load-num">25%</span>
+                <span class="gauge-unit">Load</span>
+              </div>
+            </div>
+            <div class="metric-row">
+              <div class="metric-meta"><span class="metric-label">Clock Speed</span><span class="metric-val" id="cpu-freq-val">2.68 GHz</span></div>
+              <div class="metric-bar"><div id="cpu-freq-bar" class="metric-bar-fill" style="width: 62%;"></div></div>
+            </div>
+          </div>
+
+          <!-- GPU Card -->
+          <div class="chamfer-card active">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+              <strong style="font-size: 0.95rem;">🎮 Graphics (NVIDIA)</strong>
+              <span id="gpu-status-pill" class="card-status-pill sleeping">Standard</span>
+            </div>
+            <div class="gauge-container">
+              <svg class="gauge-svg" viewBox="0 0 120 120">
+                <circle class="gauge-bg" cx="60" cy="60" r="50"></circle>
+                <circle id="gpu-gauge-fill" class="gauge-fill" cx="60" cy="60" r="50" style="stroke-dashoffset: 300; stroke: #ff4d66;"></circle>
+              </svg>
+              <div class="gauge-value-overlay">
+                <span class="gauge-number" id="gpu-load-num" style="color: #ff4d66;">0%</span>
+                <span class="gauge-unit" id="gpu-load-unit">Power Saving</span>
+              </div>
+            </div>
+            <div class="metric-row">
+              <div class="metric-meta"><span class="metric-label">TGP Power</span><span class="metric-val" id="gpu-power-val">0.0 W</span></div>
+              <div class="metric-bar"><div id="gpu-power-bar" class="metric-bar-fill cyan" style="width: 0%;"></div></div>
+            </div>
+          </div>
+
+          <!-- Memory & Storage Card -->
+          <div class="chamfer-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+              <strong style="font-size: 0.95rem;">💾 Memory & Storage</strong>
+              <span id="ram-mts-pill" class="card-status-pill">3200 MT/s</span>
+            </div>
+            <div style="margin: 14px 0;">
+              <div class="metric-row">
+                <div class="metric-meta"><span class="metric-label">RAM Allocated</span><span class="metric-val" id="ram-usage-text">8.2 / 15.7 GB</span></div>
+                <div class="metric-bar"><div id="ram-bar-fill" class="metric-bar-fill" style="width: 52%;"></div></div>
+              </div>
+              <div class="metric-row" style="margin-top: 14px;">
+                <div class="metric-meta"><span class="metric-label">System SSD (C:)</span><span class="metric-val" id="disk-usage-text">248 / 476 GB</span></div>
+                <div class="metric-bar"><div id="disk-bar-fill" class="metric-bar-fill cyan" style="width: 52%;"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Acoustics & Network Card -->
+          <div class="chamfer-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+              <strong style="font-size: 0.95rem;">🌪️ Dual Fans & Network</strong>
+              <span class="card-status-pill">Active</span>
+            </div>
+            <div style="margin: 14px 0;">
+              <div class="metric-row">
+                <div class="metric-meta"><span class="metric-label">CPU Fan</span><span class="metric-val" id="cpu-fan-val">2400 RPM</span></div>
+                <div class="metric-bar"><div id="cpu-fan-bar" class="metric-bar-fill" style="width: 48%;"></div></div>
+              </div>
+              <div class="metric-row" style="margin-top: 14px;">
+                <div class="metric-meta"><span class="metric-label">Throughput</span><span class="metric-val" id="net-rate-val">↓ 0 KB/s  ↑ 0 KB/s</span></div>
+                <div class="metric-bar"><div class="metric-bar-fill cyan" style="width: 15%;"></div></div>
+              </div>
+            </div>
+          </div>
+
         </div>
 
         <!-- ACTIVE DEVICE SWITCHER & QUICK WAKE BAR -->
@@ -265,6 +374,147 @@
           </div>
         </div>
 
+      </section>
+
+      <!-- ================= 1B. HARDWARE CONTROL VIEW ================= -->
+      <section id="view-control" class="view-section">
+        <div class="section-header">
+          <div class="section-marker">HARDWARE CONTROLLER</div>
+          <h1 class="section-title">Hardware <strong>Controls</strong></h1>
+          <p class="section-desc">Manage GPU states, screen refresh rates, battery charging thresholds, and audio.</p>
+        </div>
+
+        <div class="sub-tabs-bar">
+          <button class="sub-tab-btn active" onclick="switchControlSubTab('gpu-display', this)">GPU & Display</button>
+          <button class="sub-tab-btn" onclick="switchControlSubTab('battery', this)">Battery & Power</button>
+          <button class="sub-tab-btn" onclick="switchControlSubTab('lighting', this)">Keyboard Lighting</button>
+          <button class="sub-tab-btn" onclick="switchControlSubTab('audio', this)">Audio & Media</button>
+        </div>
+
+        <div class="controls-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+          
+          <!-- GPU & Display Card -->
+          <div class="chamfer-card active" id="control-subtab-gpu-display">
+            <div class="section-marker">GPU POWER STATE</div>
+            <div style="margin-bottom: 20px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-weight: 600;">Discrete GPU Mode</span>
+                <span style="font-size: 0.75rem; color: var(--text-secondary);">Eco disables dGPU</span>
+              </div>
+              <div class="pill-group" id="gpu-mode-pills">
+                <button class="pill-btn" data-gpumode="eco" onclick="setGpuModeAction('eco')">Eco</button>
+                <button class="pill-btn active" data-gpumode="standard" onclick="setGpuModeAction('standard')">Standard</button>
+                <button class="pill-btn" data-gpumode="optimized" onclick="setGpuModeAction('optimized')">Optimized</button>
+              </div>
+            </div>
+
+            <div class="section-marker" style="margin-top: 24px;">DISPLAY REFRESH RATE</div>
+            <div style="margin-bottom: 20px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-weight: 600;">Screen Hz</span>
+                <span style="font-size: 0.75rem; color: var(--text-secondary);">Instant switch</span>
+              </div>
+              <div class="pill-group" id="refresh-rate-pills">
+                <button class="pill-btn" data-hz="60" onclick="setRefreshRateAction(60)">60 Hz</button>
+                <button class="pill-btn active" data-hz="144" onclick="setRefreshRateAction(144)">144 Hz</button>
+                <button class="pill-btn" data-hz="auto" onclick="setRefreshRateAction(144)">Auto</button>
+              </div>
+            </div>
+
+            <div style="margin-top: 20px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-weight: 600;">Brightness</span>
+                <span id="ctrl-bright-text" style="font-weight: 700; color: var(--accent-red);">80%</span>
+              </div>
+              <input type="range" class="range-slider" min="0" max="100" value="80" style="width: 100%; accent-color: var(--accent-red);" oninput="document.getElementById('ctrl-bright-text').innerText = this.value + '%'" onchange="setBrightnessAction(this.value)">
+            </div>
+
+            <div style="margin-top: 20px;">
+              <button class="btn-quick-power" style="width: 100%; justify-content: center; min-height: 48px;" onclick="turnOffDisplayAction()">🖥️ Turn Off Screen (Display Sleep)</button>
+            </div>
+          </div>
+
+          <!-- Battery & Power Plan Card -->
+          <div class="chamfer-card active" id="control-subtab-battery">
+            <div class="section-marker">BATTERY CARE LIMIT</div>
+            <div style="margin-bottom: 20px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-weight: 600;">Charge Threshold</span>
+                <span id="ctrl-charge-limit-text" style="font-weight: 700; color: var(--accent-red);">80%</span>
+              </div>
+              <input type="range" class="range-slider" min="60" max="100" step="20" value="80" style="width: 100%; accent-color: var(--accent-red);" oninput="document.getElementById('ctrl-charge-limit-text').innerText = this.value + '%'" onchange="setBatteryLimitAction(this.value)">
+              <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 6px;">Caps lithium-ion battery charging at 80% to maximize lifespan while on AC power.</p>
+            </div>
+
+            <div class="section-marker" style="margin-top: 24px;">WINDOWS POWER SCHEME SYNC</div>
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 600;">Power Mode Synchronization</span>
+                <input type="checkbox" id="power-sync-toggle" checked style="width: 20px; height: 20px; accent-color: var(--accent-red);">
+              </div>
+              <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 6px;">Automatically synchronizes Windows 11 Power Mode when Operating Mode changes (Silent $\rightarrow$ Power Saver, Turbo $\rightarrow$ High Performance).</p>
+            </div>
+          </div>
+
+          <!-- Keyboard Lighting Card -->
+          <div class="chamfer-card active" id="control-subtab-lighting">
+            <div class="section-marker">KEYBOARD BACKLIGHT</div>
+            <div style="margin-bottom: 20px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-weight: 600;">Backlight Level</span>
+                <span id="ctrl-kbd-bright-text" style="font-weight: 700; color: var(--accent-red);">Level 2</span>
+              </div>
+              <input type="range" class="range-slider" min="0" max="3" step="1" value="2" style="width: 100%; accent-color: var(--accent-red);" oninput="document.getElementById('ctrl-kbd-bright-text').innerText = 'Level ' + this.value" onchange="setKeyboardBrightnessAction(this.value)">
+            </div>
+
+            <div class="section-marker" style="margin-top: 24px;">HOTKEYS</div>
+            <div>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 600;">FN-Lock Active</span>
+                <input type="checkbox" id="fn-lock-toggle" checked style="width: 20px; height: 20px; accent-color: var(--accent-red);" onchange="toggleFnLockAction(this.checked)">
+              </div>
+              <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 6px;">Lock function row keys to media and hardware hotkeys.</p>
+            </div>
+          </div>
+
+          <!-- Audio & Media Card -->
+          <div class="chamfer-card active" id="control-subtab-audio">
+            <div class="section-marker">AUDIO CONTROLS</div>
+            <div style="margin-bottom: 20px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                <span style="font-weight: 600;">Master Volume</span>
+                <span id="ctrl-vol-text" style="font-weight: 700; color: var(--accent-red);">65%</span>
+              </div>
+              <input type="range" class="range-slider" min="0" max="100" value="65" style="width: 100%; accent-color: var(--accent-red);" oninput="document.getElementById('ctrl-vol-text').innerText = this.value + '%'" onchange="setVolumeAction(this.value)">
+            </div>
+
+            <div style="display: flex; gap: 10px; margin-bottom: 24px;">
+              <button class="btn-quick-power" style="flex: 1; justify-content: center; min-height: 48px;" onclick="toggleAudioMuteAction()">🔊 Mute Audio</button>
+              <button class="btn-quick-power" style="flex: 1; justify-content: center; min-height: 48px;" onclick="toggleMicMuteAction()">🎤 Mute Mic</button>
+            </div>
+
+            <div class="section-marker">MEDIA PLAYBACK</div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn-quick-power" style="flex: 1; justify-content: center; min-height: 48px;" onclick="sendMediaAction('prev')">⏮️ Prev</button>
+              <button class="btn-quick-power" style="flex: 1; justify-content: center; min-height: 48px; background: var(--accent-red); color: #fff;" onclick="sendMediaAction('play_pause')">⏯️ Play</button>
+              <button class="btn-quick-power" style="flex: 1; justify-content: center; min-height: 48px;" onclick="sendMediaAction('next')">⏭️ Next</button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ================= 1C. SCENES VIEW ================= -->
+      <section id="view-scenes" class="view-section">
+        <div class="section-header">
+          <div class="section-marker">SCENARIO PROFILES</div>
+          <h1 class="section-title">Hardware <strong>Scenes</strong></h1>
+          <p class="section-desc">One-tap profiles that synchronize cooling, display Hz, power schemes, and audio.</p>
+        </div>
+
+        <div id="scenes-grid-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 18px; margin-bottom: 24px;">
+          <!-- Dynamically populated from /api/scenes -->
+        </div>
       </section>
 
       <!-- ================= 2. PAIRED DEVICES VIEW ================= -->
@@ -450,15 +700,19 @@
       <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
         <button class="bottom-nav-item active" data-target="view-dashboard">
           <span class="nav-icon">⚡</span>
-          <span class="nav-label">Power</span>
+          <span class="nav-label">Home</span>
+        </button>
+        <button class="bottom-nav-item" data-target="view-control">
+          <span class="nav-icon">🎛️</span>
+          <span class="nav-label">Control</span>
+        </button>
+        <button class="bottom-nav-item" data-target="view-scenes">
+          <span class="nav-icon">🎯</span>
+          <span class="nav-label">Scenes</span>
         </button>
         <button class="bottom-nav-item" data-target="view-devices">
           <span class="nav-icon">🖥️</span>
           <span class="nav-label">Devices</span>
-        </button>
-        <button class="bottom-nav-item" data-target="view-workspaces">
-          <span class="nav-icon">💼</span>
-          <span class="nav-label">Spaces</span>
         </button>
         <button class="bottom-nav-item" data-target="view-schedule">
           <span class="nav-icon">⏰</span>

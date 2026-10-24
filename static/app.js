@@ -13,6 +13,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initPowerModals();
   await initAuthentication();
   startAppServices();
+  initCommandCenter();
 });
 
 // --- Cryptographic HMAC-SHA256 & SHA256 Engine ---
@@ -344,6 +345,7 @@ async function submitClientPairing() {
       closeClientPairModal();
       alert("✅ Phone paired successfully with WakeX Hub!\n256-bit cryptographic local keys established.");
       startAppServices();
+  initCommandCenter();
     } else {
       const authErr = await resAuth.json().catch(() => ({}));
       let msg = authErr.detail || "Pairing authentication failed.";

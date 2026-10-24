@@ -795,3 +795,52 @@ async def set_gpu_mode_endpoint(
         raise HTTPException(status_code=400, detail=res.get("message"))
     security.audit_logger.warning(f"HARDWARE_CHANGE: GPU Mode switched to '{mode}' (Reboot required)")
     return res
+
+
+# --- WAKEX SCENES & AUTOMATION (PHASE F) ---
+
+@app.get("/api/scenes")
+async def list_scenes_endpoint(_: dict = Depends(security.require_permission("view"))):
+    """Returns all available built-in and user-configured hardware scenes."""
+    from engine.scenes import load_scenes
+    return {"status": "ok", "scenes": load_scenes()}
+
+
+@app.post("/api/scenes/{scene_id}/apply")
+async def apply_scene_endpoint(
+    scene_id: str,
+    _: dict = Depends(security.require_permission("control"))
+):
+    """Applies a scene profile across all hardware controls atomically."""
+    from engine.scenes import apply_scene
+    res = apply_scene(scene_id)
+    if res.get("status") == "error":
+        raise HTTPException(status_code=400, detail=res.get("message"))
+    return res
+
+
+@app.post("/api/scenes")
+async def create_scene_endpoint(
+    payload: dict,
+    _: dict = Depends(security.require_permission("control"))
+):
+    """Creates a custom scene."""
+    from engine.scenes import create_scene
+    name = str(payload.get("name", "Custom Scene"))
+    icon = str(payload.get("icon", "⭐"))
+    actions = payload.get("actions", {})
+    desc = str(payload.get("description", ""))
+    return create_scene(name, icon, actions, desc)
+
+
+@app.delete("/api/scenes/{scene_id}")
+async def delete_scene_endpoint(
+    scene_id: str,
+    _: dict = Depends(security.require_permission("control"))
+):
+    """Deletes a custom user scene."""
+    from engine.scenes import delete_scene
+    success = delete_scene(scene_id)
+    if not success:
+        raise HTTPException(status_code=400, detail="Cannot delete built-in scene or scene not found.")
+    return {"status": "ok", "deleted": scene_id}
